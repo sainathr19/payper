@@ -53,6 +53,12 @@ One product closes three gaps from the XRPL builder-opportunities registry:
 - **Curator backend** — runs loan-broker ops, manages the cover ratio, indexes vault/loan
   state directly from `rippled`/Clio, computes APY.
 
+## Documentation
+
+- [`docs/SPEC.md`](docs/SPEC.md) — protocol & product spec (objects, transactions, flows, yield/risk model)
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system architecture, components, data flow
+- [`docs/ui-inspiration.md`](docs/ui-inspiration.md) — curated UI references & design direction
+
 ## Tech stack
 
 - **Ledger:** XRPL (native — *not* the EVM sidechain), XLS-65 / XLS-66 / XLS-30 (AMM)

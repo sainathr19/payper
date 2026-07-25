@@ -11,5 +11,12 @@ Spike and operational scripts.
   ```
 
   Exercises the real `@payper/sdk` primitives (`signXrplPayment`, `DirectXrplFacilitator`).
-  Swapping in `T54Facilitator` runs the same loop through t54's facilitator once its API is
-  confirmed.
+
+- **`test-t54-testnet.ts`** — the same loop, but settled through the **live t54 testnet
+  facilitator** over HTTP (`POST /verify` → `/settle`). `pnpm --filter @payper/scripts test:t54`.
+
+- **`test-http-e2e.ts`** — full **W3–5 HTTP path**: a real Express server with the Payper
+  middleware, driven end to end (402 quote → paid retry → on-ledger settle → replay rejected)
+  through the live t54 facilitator. `pnpm --filter @payper/scripts test:e2e`.
+
+  > Build workspace packages first: `pnpm --filter @payper/sdk --filter @payper/gateway build`.

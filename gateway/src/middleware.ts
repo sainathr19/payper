@@ -11,6 +11,7 @@ import {
   type PaymentRequired,
   type PaymentRequirements,
 } from "@payper/sdk";
+import { InMemoryQuoteStore, type QuoteStore } from "./quote-store.js";
 
 export interface PayperOptions {
   /** Amount in base units: drops for XRP, or issued-currency value for IOUs. */
@@ -20,10 +21,12 @@ export interface PayperOptions {
   /** Merchant XRPL account (r...) that receives the payment. */
   payTo: string;
   facilitator: Facilitator;
-  /** x402 network id, e.g. "xrpl-mainnet". */
+  /** x402 network id, e.g. "xrpl:0" (mainnet) or "xrpl:1" (testnet). */
   network: string;
   /** Quote lifetime in seconds (default 120). */
   maxTimeoutSeconds?: number;
+  /** Where issued quotes are held; defaults to an in-memory store. */
+  store?: QuoteStore;
 }
 
 /**
@@ -31,20 +34,22 @@ export interface PayperOptions {
  *
  *   app.get("/inference", payper({ price: "10000", payTo, facilitator, network }), handler)
  *
- * Unpaid requests get a 402 + PAYMENT-REQUIRED quote. A retry carrying a valid
- * PAYMENT-SIGNATURE is verified + settled via the facilitator, then passed through
- * with a PAYMENT-RESPONSE (txid) header.
+ * Unpaid requests get a 402 + PAYMENT-REQUIRED quote (recorded in the store).
+ * A retry carrying PAYMENT-SIGNATURE is validated against the STORED quote (not
+ * the client-echoed one), verified + settled via the facilitator, consumed so it
+ * can't be replayed, then passed through with a PAYMENT-RESPONSE (txid) header.
  */
 export function payper(opts: PayperOptions) {
+  const store = opts.store ?? new InMemoryQuoteStore();
+
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const sig = req.header(HEADERS.signature);
 
-    // No payment yet -> return a quote.
+    // No payment yet -> issue and record a quote.
     if (!sig) {
-      const quote: PaymentRequired = {
-        x402Version: X402_VERSION,
-        accepts: [requirementsFor(req, opts)],
-      };
+      const requirements = requirementsFor(req, opts);
+      store.put(requirements.extra!.invoiceId as string, requirements);
+      const quote: PaymentRequired = { x402Version: X402_VERSION, accepts: [requirements] };
       res
         .status(402)
         .setHeader(HEADERS.required, encodePaymentRequired(quote))
@@ -52,31 +57,41 @@ export function payper(opts: PayperOptions) {
       return;
     }
 
-    // Payment present -> verify + settle, then release the resource.
+    // Paid retry -> validate against the quote WE issued, then verify + settle.
     const payload = decodePaymentPayload(sig);
-    // NOTE: the demo trusts the echoed `accepted`; a real gateway looks the quote
-    // up by invoiceId (extra.invoiceId) to prevent price tampering.
-    const requirements = payload.accepted;
+    const invoiceId = payload.payload.invoiceId;
+    const requirements = store.get(invoiceId);
+    if (!requirements) {
+      res.status(402).json({ error: "unknown or expired quote; request a new one" });
+      return;
+    }
+
     const facReq = {
       x402Version: X402_VERSION,
       paymentPayload: payload,
       paymentRequirements: requirements,
     };
 
-    const verdict = await opts.facilitator.verify(facReq);
-    if (!verdict.isValid) {
-      res.status(402).json({ error: verdict.invalidReason ?? "invalid payment" });
-      return;
-    }
+    try {
+      const verdict = await opts.facilitator.verify(facReq);
+      if (!verdict.isValid) {
+        res.status(402).json({ error: verdict.invalidReason ?? "invalid payment" });
+        return;
+      }
 
-    const receipt = await opts.facilitator.settle(facReq);
-    if (!receipt.success) {
-      res.status(402).json({ error: receipt.errorReason ?? "settlement failed" });
-      return;
-    }
+      const receipt = await opts.facilitator.settle(facReq);
+      if (!receipt.success) {
+        res.status(402).json({ error: receipt.errorReason ?? "settlement failed" });
+        return;
+      }
 
-    res.setHeader(HEADERS.response, encodeSettleResponse(receipt));
-    next();
+      store.consume(invoiceId);
+      res.setHeader(HEADERS.response, encodeSettleResponse(receipt));
+      next();
+    } catch (err) {
+      // Facilitator unreachable / unexpected error.
+      res.status(502).json({ error: err instanceof Error ? err.message : "facilitator error" });
+    }
   };
 }
 

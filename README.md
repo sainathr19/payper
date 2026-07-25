@@ -81,8 +81,8 @@ Agent ◀─────────200 OK + response─────────
 
 ## Roadmap
 
-- [ ] **W1–2** — Starter Kit spike: one agent pays one endpoint via the facilitator on mainnet, end to end
-- [ ] **W3–5** — Gateway middleware + SDK (one-line monetization); wrap first real service
+- [x] **W1–2** — Starter Kit spike: agent pays one endpoint via the t54 facilitator, end to end (settled on testnet)
+- [~] **W3–5** — Gateway middleware + SDK (one-line monetization): ✅ x402 middleware + quote store, proven over HTTP through the live t54 facilitator; ⏳ wrap first real service
 - [ ] **W6–8** — Dashboard + live tx feed; seed marketplace (3–4 services); autonomous demo agent
 - [ ] **W9–11** — Onboard 3–5 external builders; accumulate on-chain volume; polish
 - [ ] **W12** — Demo, pitch, docs, submission

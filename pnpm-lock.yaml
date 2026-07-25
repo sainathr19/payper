@@ -84,6 +84,9 @@ importers:
 
   scripts:
     dependencies:
+      '@payper/backend':
+        specifier: workspace:*
+        version: link:../backend
       '@payper/gateway':
         specifier: workspace:*
         version: link:../gateway

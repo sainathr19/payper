@@ -24,4 +24,9 @@ Spike and operational scripts.
   through the middleware — asserting the merchant's RLUSD balance.
   `pnpm --filter @payper/scripts test:rlusd`.
 
-  > Build workspace packages first: `pnpm --filter @payper/sdk --filter @payper/gateway build`.
+- **`test-indexer-testnet.ts`** — **W6–8 indexer**: subscribes to a merchant account, sends a
+  payment, and asserts the settled payment is captured both live (stream) and via backfill.
+  `pnpm --filter @payper/scripts test:indexer`.
+
+  > Build workspace packages first, e.g.
+  > `pnpm --filter @payper/sdk --filter @payper/gateway --filter @payper/backend build`.

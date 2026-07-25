@@ -16,8 +16,10 @@ import { InMemoryQuoteStore, type QuoteStore } from "./quote-store.js";
 export interface PayperOptions {
   /** Amount in base units: drops for XRP, or issued-currency value for IOUs. */
   price: string;
-  /** "XRP" or an issued-currency identifier (see `extra`). Defaults to "XRP". */
+  /** "XRP" or an issued-currency code (e.g. RLUSD's `524C...`). Defaults to "XRP". */
   asset?: string;
+  /** Issuer XRPL account for an IOU asset (required when asset !== "XRP"). */
+  issuer?: string;
   /** Merchant XRPL account (r...) that receives the payment. */
   payTo: string;
   facilitator: Facilitator;
@@ -96,14 +98,23 @@ export function payper(opts: PayperOptions) {
 }
 
 function requirementsFor(req: Request, o: PayperOptions): PaymentRequirements {
+  const asset = o.asset ?? "XRP";
+  const extra: Record<string, unknown> = {
+    invoiceId: makeInvoiceId(),
+    sourceTag: DEFAULT_SOURCE_TAG,
+  };
+  if (asset !== "XRP") {
+    if (!o.issuer) throw new Error("payper: `issuer` is required for an IOU asset");
+    extra.issuer = o.issuer;
+  }
   return {
     scheme: "exact",
     network: o.network,
     amount: o.price,
-    asset: o.asset ?? "XRP",
+    asset,
     payTo: o.payTo,
     maxTimeoutSeconds: o.maxTimeoutSeconds ?? 120,
     resource: req.path,
-    extra: { invoiceId: makeInvoiceId(), sourceTag: DEFAULT_SOURCE_TAG },
+    extra,
   };
 }

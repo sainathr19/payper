@@ -9,7 +9,8 @@ Shared building blocks used by every Payper package.
 - **`x402.ts`** — canonical v2 header names (`PAYMENT-REQUIRED` / `PAYMENT-SIGNATURE` /
   `PAYMENT-RESPONSE`) and base64 codecs.
 - **`xrpl.ts`** — `signXrplPayment()` (build + autofill + sign a presigned Payment →
-  `PaymentPayload`), `decodePaymentBlob()`, and `makeInvoiceId()` (replay tag).
+  `PaymentPayload`, XRP **or** RLUSD/IOU), `amountFromRequirements()`, `ensureTrustLine()`
+  (RLUSD onboarding), `RLUSD_CURRENCY`, `decodePaymentBlob()`, and `makeInvoiceId()`.
 - **`facilitator.ts`** — the `Facilitator` interface with two implementations:
   - **`T54Facilitator`** — posts to t54's `/verify` and `/settle`
     ([xrpl-x402.t54.ai](https://xrpl-x402.t54.ai)).

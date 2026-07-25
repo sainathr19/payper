@@ -7,6 +7,7 @@
     "spike": "tsx spike-pay-endpoint.ts",
     "test:t54": "tsx test-t54-testnet.ts",
     "test:e2e": "tsx test-http-e2e.ts",
+    "test:rlusd": "tsx test-rlusd-testnet.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -19,4 +19,9 @@ Spike and operational scripts.
   middleware, driven end to end (402 quote → paid retry → on-ledger settle → replay rejected)
   through the live t54 facilitator. `pnpm --filter @payper/scripts test:e2e`.
 
+- **`test-rlusd-testnet.ts`** — **RLUSD (IOU) path**: stands up a local RLUSD issuer (Ripple's
+  is mainnet-only), wires trust lines, funds the agent, and settles a `0.01 RLUSD` payment
+  through the middleware — asserting the merchant's RLUSD balance.
+  `pnpm --filter @payper/scripts test:rlusd`.
+
   > Build workspace packages first: `pnpm --filter @payper/sdk --filter @payper/gateway build`.

@@ -158,7 +158,10 @@ The buildathon rewards **real users** and **measurable on-chain activity** on a 
   facilitator (`POST /verify` → `/settle` → on-ledger txid). Note: `payload` must carry
   `{ signedTxBlob, invoiceId }` (the docs example omits `invoiceId`). Still open: mainnet
   availability, rate limits, and auth. The direct-`Payment` fallback is also proven.
-- **RLUSD onboarding UX** — trust-line setup for services and agents; whether the Starter Kit
-  automates it.
+- **RLUSD (IOU) — WORKING on testnet.** Amount encoding (`{currency, issuer, value}`), the
+  `524C…` currency code, and trust-line onboarding (`ensureTrustLine`) are implemented; a
+  `0.01 RLUSD` payment settles through the middleware end-to-end (with a local issuer, since
+  Ripple's RLUSD is mainnet-only). Still open: settle RLUSD through the **t54** facilitator
+  (vs. the direct path), and confirm mainnet RLUSD issuer/trust-line UX.
 - **xrpl.js** helpers used by the Starter Kit's Payment skill (versions, typed builders).
 - Whether to expose an **MCP server** so agents discover Payper-listed services natively.

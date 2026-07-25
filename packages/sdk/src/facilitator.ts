@@ -70,9 +70,19 @@ export class DirectXrplFacilitator implements Facilitator {
     if (tx.TransactionType !== "Payment") return fail("not a Payment transaction");
     if (tx.Destination !== q.payTo) return fail("destination does not match payTo");
 
-    // XRP amount is a drops string; IOU amounts are objects (checked once wired).
+    // XRP amount is a drops string; IOU amounts are { currency, issuer, value }.
     if (typeof tx.Amount === "string") {
       if (BigInt(tx.Amount) < BigInt(q.amount)) return fail("amount below quote");
+    } else if (tx.Amount && typeof tx.Amount === "object") {
+      const amt = tx.Amount as { currency?: string; issuer?: string; value?: string };
+      const wantIssuer = q.extra?.issuer as string | undefined;
+      if (q.asset !== "XRP" && amt.currency?.toUpperCase() !== q.asset.toUpperCase()) {
+        return fail("currency does not match asset");
+      }
+      if (wantIssuer && amt.issuer !== wantIssuer) return fail("issuer mismatch");
+      if (Number(amt.value ?? "0") < Number(q.amount)) return fail("amount below quote");
+    } else {
+      return fail("unrecognized amount");
     }
 
     // Invoice binding: InvoiceID must equal SHA256(invoiceId).

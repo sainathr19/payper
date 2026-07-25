@@ -1,9 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
 import { decode } from "ripple-binary-codec";
-import type { Client, Wallet, Payment } from "xrpl";
+import type { Amount, Client, Wallet, Payment, TrustSet } from "xrpl";
 import { X402_VERSION } from "./x402.js";
 import { DEFAULT_SOURCE_TAG } from "./types.js";
 import type { PaymentPayload, PaymentRequirements } from "./types.js";
+
+/** RLUSD's canonical 40-hex XRPL currency code. */
+export const RLUSD_CURRENCY = "524C555344000000000000000000000000000000";
 
 /** A fresh, unique invoice identifier for `extra.invoiceId`. */
 export function makeInvoiceId(): string {
@@ -17,6 +20,17 @@ export function makeInvoiceId(): string {
  */
 export function invoiceBindingHash(invoiceId: string): string {
   return createHash("sha256").update(invoiceId).digest("hex").toUpperCase();
+}
+
+/**
+ * The XRPL Payment `Amount` for a quote: a drops string for XRP, or an
+ * `{ currency, issuer, value }` object for an IOU (asset + `extra.issuer`).
+ */
+export function amountFromRequirements(req: PaymentRequirements): Amount {
+  if (req.asset === "XRP") return req.amount; // drops string
+  const issuer = req.extra?.issuer as string | undefined;
+  if (!issuer) throw new Error("IOU requirements.extra.issuer is required");
+  return { currency: req.asset, issuer, value: req.amount };
 }
 
 /** Minimal shape of a decoded XRPL Payment (fields we check during verify). */
@@ -35,9 +49,39 @@ export function decodePaymentBlob(txBlob: string): DecodedPayment {
 }
 
 /**
+ * Ensure `wallet` holds a trust line to `issuer` for `currency`, creating one if
+ * absent. This is the RLUSD onboarding step for both services and agents.
+ */
+export async function ensureTrustLine(
+  client: Client,
+  wallet: Wallet,
+  currency: string,
+  issuer: string,
+  limit = "1000000000",
+): Promise<void> {
+  const lines = await client.request({
+    command: "account_lines",
+    account: wallet.address,
+    peer: issuer,
+  });
+  const has = lines.result.lines.some(
+    (l) => l.currency.toUpperCase() === currency.toUpperCase(),
+  );
+  if (has) return;
+
+  const tx: TrustSet = {
+    TransactionType: "TrustSet",
+    Account: wallet.address,
+    LimitAmount: { currency, issuer, value: limit },
+  };
+  const prepared = await client.autofill(tx);
+  const signed = wallet.sign(prepared);
+  await client.submitAndWait(signed.tx_blob);
+}
+
+/**
  * Build, autofill, and sign an XRPL Payment for a quote, returning the x402
- * PaymentPayload the facilitator settles. XRP only for the W1–2 spike; IOU
- * (RLUSD) amounts follow once the trust-line flow is wired.
+ * PaymentPayload the facilitator settles. Handles XRP (drops) and IOU (RLUSD).
  */
 export async function signXrplPayment(
   client: Client,
@@ -52,8 +96,7 @@ export async function signXrplPayment(
     TransactionType: "Payment",
     Account: wallet.address,
     Destination: req.payTo,
-    // XRP amount is a drops string; IOUs use an { currency, issuer, value } object.
-    Amount: req.amount,
+    Amount: amountFromRequirements(req),
     SourceTag: sourceTag,
     InvoiceID: invoiceBindingHash(invoiceId),
   };

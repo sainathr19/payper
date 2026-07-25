@@ -19,6 +19,12 @@ Shared building blocks used by every Payper package.
 
 Gateway, backend, and agent all depend on this package (`@payper/sdk`).
 
-> **W1–2 TODO:** confirm the exact XRPL payload field name and `network` string t54 expects
-> against its `/supported` + `/docs`; the direct path is proven, the t54 path is wired but
-> unverified against a live facilitator.
+Confirmed against t54's [XRPL scheme docs](https://xrpl-x402.t54.ai/docs/xrpl-scheme):
+payload field `payload.signedTxBlob`; CAIP-2 networks (`xrpl:0/1/2`); required
+`extra.invoiceId` + `extra.sourceTag` (default `804681468`); invoice binding
+`InvoiceID = SHA256(invoiceId)`; facilitator hosts `xrpl-facilitator-{testnet,mainnet}.t54.ai`.
+t54 also ships an official `x402-xrpl` TS/Python middleware package.
+
+> **Still to do:** run the `T54Facilitator` path against the live testnet facilitator
+> (the direct-XRPL path is proven on-ledger; the t54 client matches the spec but is untested
+> against the running service).

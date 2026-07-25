@@ -10,15 +10,25 @@
 export type Scheme = "exact";
 
 /**
- * x402 network identifier. Exact XRPL values should be confirmed against the
- * facilitator's `/supported` endpoint; these are our working constants.
+ * x402 network identifier — CAIP-2 (`xrpl:{network_id}`), per t54's docs.
+ * https://xrpl-x402.t54.ai/docs/xrpl-scheme#network-identifiers
  */
 export const NETWORK = {
-  mainnet: "xrpl-mainnet",
-  testnet: "xrpl-testnet",
-  devnet: "xrpl-devnet",
+  mainnet: "xrpl:0",
+  testnet: "xrpl:1",
+  devnet: "xrpl:2",
 } as const;
 export type Network = (typeof NETWORK)[keyof typeof NETWORK];
+
+/** Default XRPL SourceTag the facilitator expects in `extra.sourceTag`. */
+export const DEFAULT_SOURCE_TAG = 804681468;
+
+/** t54 XRPL x402 facilitator base URLs (the API host, distinct from the docs site). */
+export const T54_FACILITATOR = {
+  testnet: "https://xrpl-facilitator-testnet.t54.ai",
+  mainnet: "https://xrpl-facilitator-mainnet.t54.ai",
+  local: "http://127.0.0.1:8011",
+} as const;
 
 /** One accepted way to pay for a resource (the server's quote line item). */
 export interface PaymentRequirements {
@@ -46,11 +56,8 @@ export interface PaymentRequired {
 
 /** XRPL "exact" scheme payload: the payer-signed, presigned Payment. */
 export interface XrplExactPayload {
-  /**
-   * Hex `tx_blob` of the signed XRPL Payment (from `wallet.sign(tx).tx_blob`).
-   * TODO(W1–2): confirm the exact field name t54 expects (txBlob vs signedTransaction).
-   */
-  txBlob: string;
+  /** Hex tx_blob of the signed XRPL Payment (from `wallet.sign(tx).tx_blob`). */
+  signedTxBlob: string;
 }
 
 /** Body of the `PAYMENT-SIGNATURE` header (base64). */

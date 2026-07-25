@@ -4,7 +4,7 @@ import type {
   SettleResponse,
   VerifyResponse,
 } from "./types.js";
-import { decodePaymentBlob } from "./xrpl.js";
+import { decodePaymentBlob, invoiceBindingHash } from "./xrpl.js";
 
 /** Verify + settle an x402 payment. Implemented by t54, or the direct-XRPL fallback. */
 export interface Facilitator {
@@ -59,7 +59,7 @@ export class DirectXrplFacilitator implements Facilitator {
 
   async verify(req: FacilitatorRequest): Promise<VerifyResponse> {
     const { paymentRequirements: q, paymentPayload: p } = req;
-    const tx = decodePaymentBlob(p.payload.txBlob);
+    const tx = decodePaymentBlob(p.payload.signedTxBlob);
 
     const fail = (reason: string): VerifyResponse => ({
       isValid: false,
@@ -75,15 +75,19 @@ export class DirectXrplFacilitator implements Facilitator {
       if (BigInt(tx.Amount) < BigInt(q.amount)) return fail("amount below quote");
     }
 
-    const wantInvoice = q.extra?.invoiceId as string | undefined;
-    if (wantInvoice && tx.InvoiceID !== wantInvoice) return fail("invoiceId mismatch");
+    // Invoice binding: InvoiceID must equal SHA256(invoiceId).
+    const invoiceId = q.extra?.invoiceId as string | undefined;
+    if (invoiceId && tx.InvoiceID !== invoiceBindingHash(invoiceId)) {
+      return fail("invoice binding mismatch");
+    }
 
     return { isValid: true, payer: tx.Account };
   }
 
   async settle(req: FacilitatorRequest): Promise<SettleResponse> {
-    const tx = decodePaymentBlob(req.paymentPayload.payload.txBlob);
-    const result = await this.client.submitAndWait(req.paymentPayload.payload.txBlob);
+    const blob = req.paymentPayload.payload.signedTxBlob;
+    const tx = decodePaymentBlob(blob);
+    const result = await this.client.submitAndWait(blob);
     const meta = result.result.meta;
     const code =
       meta && typeof meta === "object" && "TransactionResult" in meta

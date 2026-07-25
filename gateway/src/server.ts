@@ -1,13 +1,15 @@
 import express from "express";
-import { NETWORK, T54Facilitator } from "@payper/sdk";
+import { NETWORK, T54_FACILITATOR, T54Facilitator } from "@payper/sdk";
 import { payper } from "./middleware.js";
 
 // Demo host: a single paid endpoint wrapped with Payper.
 // Run with `pnpm --filter @payper/gateway dev` once env + facilitator are wired.
 const app = express();
 
+const isMainnet = process.env.XRPL_NETWORK === "mainnet";
 const facilitator = new T54Facilitator(
-  process.env.T54_FACILITATOR_URL ?? "https://xrpl-x402.t54.ai",
+  process.env.T54_FACILITATOR_URL ??
+    (isMainnet ? T54_FACILITATOR.mainnet : T54_FACILITATOR.testnet),
   process.env.T54_API_KEY,
 );
 

@@ -2,11 +2,21 @@ import { createHash, randomUUID } from "node:crypto";
 import { decode } from "ripple-binary-codec";
 import type { Client, Wallet, Payment } from "xrpl";
 import { X402_VERSION } from "./x402.js";
+import { DEFAULT_SOURCE_TAG } from "./types.js";
 import type { PaymentPayload, PaymentRequirements } from "./types.js";
 
-/** A 64-char uppercase hex InvoiceID derived from a fresh nonce (XRPL replay tag). */
+/** A fresh, unique invoice identifier for `extra.invoiceId`. */
 export function makeInvoiceId(): string {
-  return createHash("sha256").update(randomUUID()).digest("hex").toUpperCase();
+  return `INV-${randomUUID()}`;
+}
+
+/**
+ * The value for the transaction's `InvoiceID` field, binding it to the invoice.
+ * t54 requires `InvoiceID = SHA256(invoiceId)` (or a Memo binding) to stop replay.
+ * https://xrpl-x402.t54.ai/docs/xrpl-scheme#invoice-binding
+ */
+export function invoiceBindingHash(invoiceId: string): string {
+  return createHash("sha256").update(invoiceId).digest("hex").toUpperCase();
 }
 
 /** Minimal shape of a decoded XRPL Payment (fields we check during verify). */
@@ -16,6 +26,7 @@ export interface DecodedPayment {
   Destination?: string;
   Amount?: unknown;
   InvoiceID?: string;
+  SourceTag?: number;
 }
 
 /** Decode a signed `tx_blob` back into transaction fields. */
@@ -33,7 +44,8 @@ export async function signXrplPayment(
   wallet: Wallet,
   req: PaymentRequirements,
 ): Promise<PaymentPayload> {
-  const invoiceId = (req.extra?.invoiceId as string | undefined) ?? undefined;
+  const invoiceId = req.extra?.invoiceId as string | undefined;
+  const sourceTag = (req.extra?.sourceTag as number | undefined) ?? DEFAULT_SOURCE_TAG;
 
   const tx: Payment = {
     TransactionType: "Payment",
@@ -41,7 +53,8 @@ export async function signXrplPayment(
     Destination: req.payTo,
     // XRP amount is a drops string; IOUs use an { currency, issuer, value } object.
     Amount: req.amount,
-    ...(invoiceId ? { InvoiceID: invoiceId } : {}),
+    SourceTag: sourceTag,
+    ...(invoiceId ? { InvoiceID: invoiceBindingHash(invoiceId) } : {}),
   };
 
   const prepared = await client.autofill(tx);
@@ -50,7 +63,7 @@ export async function signXrplPayment(
   return {
     x402Version: X402_VERSION,
     accepted: req,
-    payload: { txBlob: signed.tx_blob },
+    payload: { signedTxBlob: signed.tx_blob },
     ...(req.resource ? { resource: req.resource } : {}),
   };
 }

@@ -147,12 +147,15 @@ The buildathon rewards **real users** and **measurable on-chain activity** on a 
 
 ## 9. Open questions / to verify
 
-- Availability, rate limits, and mainnet vs. devnet gating of the **t54 x402 facilitator**
-  ([t54.ai](https://t54.ai)); confirm the direct-`Payment` fallback path.
-- **x402 header schema:** `PAYMENT-REQUIRED` / `PAYMENT-SIGNATURE` / `PAYMENT-RESPONSE` are confirmed
-  against the [x402 v2 HTTP transport spec](https://github.com/coinbase/x402/blob/main/specs/transports-v2/http.md);
-  still verify the exact `PaymentRequired` / `PaymentPayload` field shapes the t54 facilitator expects on XRPL
-  (asset/issuer encoding, nonce, expiry).
+- **x402 wire format — RESOLVED** against t54's [XRPL scheme docs](https://xrpl-x402.t54.ai/docs/xrpl-scheme):
+  headers `PAYMENT-REQUIRED` / `PAYMENT-SIGNATURE` / `PAYMENT-RESPONSE`; scheme `"exact"`;
+  CAIP-2 networks (`xrpl:0` mainnet / `xrpl:1` testnet / `xrpl:2` devnet); payload field
+  `payload.signedTxBlob`; required `extra.invoiceId` + `extra.sourceTag` (default `804681468`);
+  invoice binding `InvoiceID = SHA256(invoiceId)` or Memo; XRP amounts in drops, RLUSD asset
+  `524C555344…` with `extra.issuer`. Verified end-to-end on testnet via the direct-XRPL path.
+- **t54 facilitator** hosts: `xrpl-facilitator-{testnet,mainnet}.t54.ai` (official `x402-xrpl`
+  middleware). Still to confirm: availability, rate limits, auth, and a live `T54Facilitator`
+  settle — the direct-`Payment` fallback is proven.
 - **RLUSD onboarding UX** — trust-line setup for services and agents; whether the Starter Kit
   automates it.
 - **xrpl.js** helpers used by the Starter Kit's Payment skill (versions, typed builders).

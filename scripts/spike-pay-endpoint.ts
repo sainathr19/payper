@@ -13,6 +13,7 @@
  */
 import { Client } from "xrpl";
 import {
+  DEFAULT_SOURCE_TAG,
   DirectXrplFacilitator,
   NETWORK,
   X402_VERSION,
@@ -47,7 +48,7 @@ async function main(): Promise<void> {
       payTo: merchant.address,
       maxTimeoutSeconds: 120,
       resource: "/inference",
-      extra: { invoiceId: makeInvoiceId() },
+      extra: { invoiceId: makeInvoiceId(), sourceTag: DEFAULT_SOURCE_TAG },
     };
 
     // 2. The agent signs a presigned Payment for the quote.

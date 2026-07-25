@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import {
   HEADERS,
   X402_VERSION,
+  DEFAULT_SOURCE_TAG,
   makeInvoiceId,
   encodePaymentRequired,
   encodeSettleResponse,
@@ -88,6 +89,6 @@ function requirementsFor(req: Request, o: PayperOptions): PaymentRequirements {
     payTo: o.payTo,
     maxTimeoutSeconds: o.maxTimeoutSeconds ?? 120,
     resource: req.path,
-    extra: { invoiceId: makeInvoiceId() },
+    extra: { invoiceId: makeInvoiceId(), sourceTag: DEFAULT_SOURCE_TAG },
   };
 }

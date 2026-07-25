@@ -78,3 +78,144 @@ body {
 .accent {
   color: var(--accent);
 }
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.head h1 {
+  margin: 0 0 0.25rem;
+}
+
+.head p {
+  margin: 0;
+}
+
+/* Live status badge with pulsing dot */
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.live-badge .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.live-badge.live {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
+.live-badge.live .dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 70%, transparent);
+  animation: pulse 1.8s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); }
+  70% { box-shadow: 0 0 0 7px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.notice {
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid color-mix(in srgb, #f59e0b 40%, var(--border));
+  background: color-mix(in srgb, #f59e0b 8%, var(--panel));
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+
+.notice code,
+.mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+.card .value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Live feed */
+.feed-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.empty {
+  padding: 1.5rem 0;
+  text-align: center;
+}
+
+.feed table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.feed th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0 0.5rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.feed td {
+  padding: 0.6rem 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+.feed .row {
+  animation: rowIn 0.5s ease;
+}
+
+@keyframes rowIn {
+  from { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  to { background: transparent; }
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+
+.link {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.link:hover {
+  color: var(--accent);
+}

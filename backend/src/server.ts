@@ -6,6 +6,18 @@ import { Indexer, type LedgerEvent } from "./indexer.js";
 const app = express();
 app.use(express.json());
 
+// CORS: the dashboard (web, another origin) reads these endpoints from the browser.
+app.use((req, res, next) => {
+  res.set("Access-Control-Allow-Origin", process.env.CORS_ORIGIN ?? "*");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  if (req.method === "OPTIONS") {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
+
 const registry = new Registry();
 const analytics = new AnalyticsStore();
 

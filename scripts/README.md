@@ -28,5 +28,9 @@ Spike and operational scripts.
   payment, and asserts the settled payment is captured both live (stream) and via backfill.
   `pnpm --filter @payper/scripts test:indexer`.
 
+- **`test-sse-testnet.ts`** — **dashboard data path**: spawns the real backend, connects an
+  SSE client to `/stream`, sends a payment, and asserts it streams through (+ `/analytics`).
+  `pnpm --filter @payper/scripts test:sse`.
+
   > Build workspace packages first, e.g.
   > `pnpm --filter @payper/sdk --filter @payper/gateway --filter @payper/backend build`.

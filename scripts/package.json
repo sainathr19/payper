@@ -9,6 +9,7 @@
     "test:e2e": "tsx test-http-e2e.ts",
     "test:rlusd": "tsx test-rlusd-testnet.ts",
     "test:indexer": "tsx test-indexer-testnet.ts",
+    "test:sse": "tsx test-sse-testnet.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

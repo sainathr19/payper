@@ -153,9 +153,11 @@ The buildathon rewards **real users** and **measurable on-chain activity** on a 
   `payload.signedTxBlob`; required `extra.invoiceId` + `extra.sourceTag` (default `804681468`);
   invoice binding `InvoiceID = SHA256(invoiceId)` or Memo; XRP amounts in drops, RLUSD asset
   `524C555344…` with `extra.issuer`. Verified end-to-end on testnet via the direct-XRPL path.
-- **t54 facilitator** hosts: `xrpl-facilitator-{testnet,mainnet}.t54.ai` (official `x402-xrpl`
-  middleware). Still to confirm: availability, rate limits, auth, and a live `T54Facilitator`
-  settle — the direct-`Payment` fallback is proven.
+- **t54 facilitator — VERIFIED LIVE.** Hosts `xrpl-facilitator-{testnet,mainnet}.t54.ai`
+  (official `x402-xrpl` middleware). `T54Facilitator` settles end-to-end against the testnet
+  facilitator (`POST /verify` → `/settle` → on-ledger txid). Note: `payload` must carry
+  `{ signedTxBlob, invoiceId }` (the docs example omits `invoiceId`). Still open: mainnet
+  availability, rate limits, and auth. The direct-`Payment` fallback is also proven.
 - **RLUSD onboarding UX** — trust-line setup for services and agents; whether the Starter Kit
   automates it.
 - **xrpl.js** helpers used by the Starter Kit's Payment skill (versions, typed builders).

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "spike": "tsx spike-pay-endpoint.ts",
+    "test:t54": "tsx test-t54-testnet.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

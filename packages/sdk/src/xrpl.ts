@@ -45,6 +45,7 @@ export async function signXrplPayment(
   req: PaymentRequirements,
 ): Promise<PaymentPayload> {
   const invoiceId = req.extra?.invoiceId as string | undefined;
+  if (!invoiceId) throw new Error("requirements.extra.invoiceId is required");
   const sourceTag = (req.extra?.sourceTag as number | undefined) ?? DEFAULT_SOURCE_TAG;
 
   const tx: Payment = {
@@ -54,7 +55,7 @@ export async function signXrplPayment(
     // XRP amount is a drops string; IOUs use an { currency, issuer, value } object.
     Amount: req.amount,
     SourceTag: sourceTag,
-    ...(invoiceId ? { InvoiceID: invoiceBindingHash(invoiceId) } : {}),
+    InvoiceID: invoiceBindingHash(invoiceId),
   };
 
   const prepared = await client.autofill(tx);
@@ -63,7 +64,6 @@ export async function signXrplPayment(
   return {
     x402Version: X402_VERSION,
     accepted: req,
-    payload: { signedTxBlob: signed.tx_blob },
-    ...(req.resource ? { resource: req.resource } : {}),
+    payload: { signedTxBlob: signed.tx_blob, invoiceId },
   };
 }

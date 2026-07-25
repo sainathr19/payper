@@ -25,6 +25,7 @@ payload field `payload.signedTxBlob`; CAIP-2 networks (`xrpl:0/1/2`); required
 `InvoiceID = SHA256(invoiceId)`; facilitator hosts `xrpl-facilitator-{testnet,mainnet}.t54.ai`.
 t54 also ships an official `x402-xrpl` TS/Python middleware package.
 
-> **Still to do:** run the `T54Facilitator` path against the live testnet facilitator
-> (the direct-XRPL path is proven on-ledger; the t54 client matches the spec but is untested
-> against the running service).
+> **Verified live:** both facilitator paths settle on testnet on-ledger — the direct-XRPL
+> fallback (`scripts/spike-pay-endpoint.ts`) and the real t54 facilitator
+> (`scripts/test-t54-testnet.ts`, `POST /verify` → `/settle`). The XRPL `payload` must carry
+> `{ signedTxBlob, invoiceId }` — t54's docs example omits `invoiceId`, but the service requires it.

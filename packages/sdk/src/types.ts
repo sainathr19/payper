@@ -58,6 +58,8 @@ export interface PaymentRequired {
 export interface XrplExactPayload {
   /** Hex tx_blob of the signed XRPL Payment (from `wallet.sign(tx).tx_blob`). */
   signedTxBlob: string;
+  /** The invoice id this payment is bound to (matches `accepted.extra.invoiceId`). */
+  invoiceId: string;
 }
 
 /** Body of the `PAYMENT-SIGNATURE` header (base64). */
@@ -66,7 +68,8 @@ export interface PaymentPayload {
   /** The chosen `PaymentRequirements` this payment satisfies. */
   accepted: PaymentRequirements;
   payload: XrplExactPayload;
-  resource?: string;
+  /** Optional structured resource descriptor (x402 v2 — an object, not a path). */
+  resource?: Record<string, unknown>;
   extensions?: Record<string, unknown>;
 }
 

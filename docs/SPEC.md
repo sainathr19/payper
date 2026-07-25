@@ -1,162 +1,159 @@
-# Tide — Protocol & Product Specification
+# Payper — Protocol & Product Specification
 
-> Liquid yield-bearing XRP on XRPL's native lending stack (XLS-65 + XLS-66),
-> with instant exit via an XLS-30 AMM pool.
+> Pay-per-call payments for AI agents on XRPL. Monetize any API with x402; agents pay
+> per request in RLUSD/XRP, settled natively on the XRP Ledger.
 
-Status: **Draft / hackathon** · Network: **XRPL Devnet** · SDK: **xrpl.js**
+Status: **Draft / buildathon** · Network: **XRPL Mainnet** · SDK: **xrpl.js** · Rail: **XRPL AI Starter Kit (x402)**
 
 ---
 
 ## 1. Overview
 
-Tide lets a user deposit **XRP** and receive **`lyXRP`** — a transferable,
-yield-bearing token that represents a share of a pooled lending vault. Yield comes
-from fixed-term, cover-protected loans originated on top of the vault. Because the
-vault's native withdrawal queue is first-come-first-serve, Tide also seeds an
-`lyXRP/XRP` AMM pool so holders can exit **instantly** at a market price.
+Payper is a developer layer over the **x402** protocol on XRPL. A service wraps its
+endpoints with Payper; when an agent (or any client) requests a paid resource, the
+endpoint returns `402 Payment Required` with machine-readable payment terms. The client
+signs a payment and retries; a **facilitator** verifies and settles it on the XRP Ledger;
+the endpoint then returns the resource. Payper provides the three things the raw protocol
+lacks: **one-line monetization (gateway/SDK)**, **discovery (marketplace)**, and
+**observability (live dashboard)**.
 
-`lyXRP` **is** the XLS-65 vault share (an MPT issued by the vault's pseudo-account).
-There is no wrapper contract — the liquid, appreciating token is a native ledger object.
+The design goal is to run entirely on **live mainnet primitives** and Ripple's shipped
+tooling — no dependency on unreleased amendments — and to maximize **on-chain activity**
+(one settled payment per request) and **real users** (developers who monetize endpoints).
 
-### Closes three registry gaps
-| Gap | Description | Tide component |
-|-----|-------------|----------------|
-| OPP-043 | Liquid Staked XRP (stETH-style token) | `lyXRP` + mint/redeem UX |
-| OPP-033 | Native Yield Aggregator | Curator/router across vaults |
-| OPP-034 | Lending front-end on XLS-65 | Lender + borrower + yield dashboard |
-
----
-
-## 2. On-chain objects (native XRPL)
-
-### 2.1 Vault (XLS-65 Single Asset Vault)
-Holds the pooled XRP and issues `lyXRP`. Key fields:
-
-| Field | Meaning for Tide |
-|-------|------------------|
-| `Owner` | Tide curator account (also the Loan Broker owner) |
-| `Account` | Vault **pseudo-account** that custodies pooled XRP |
-| `Asset` | `XRP` |
-| `AssetsTotal` | Total vault value (principal out on loans + idle + accrued interest) |
-| `AssetsAvailable` | Idle XRP available to lend or redeem |
-| `ShareMPTID` | Issuance ID of the `lyXRP` share token |
-| `LossUnrealized` | Paper loss from impaired loans (lowers redemption value) |
-| `AssetsMaximum` | Optional deposit cap (`0` = uncapped) |
-| `Scale` | Share precision (power-of-10 multiplier) |
-| `WithdrawalPolicy` | `vaultStrategyFirstComeFirstServe` |
-| `Flags` | `lsfVaultPrivate` if gated by a Permissioned Domain |
-
-**Share value (exchange rate).** Per the spec:
-- Deposit (round down): `Δshares = Δassets × sharesTotal / assetsTotal`
-- Redeem (accounts for loss): `Δassets = Δshares × (assetsTotal − LossUnrealized) / sharesTotal`
-
-So as loans pay interest, `AssetsTotal` rises and each `lyXRP` redeems for more XRP.
-This is the entire yield mechanism — no rebasing, value accrues to the exchange rate
-(like stETH-wstETH wrapped form).
-
-### 2.2 Loan Broker (XLS-66)
-Originates loans from the vault and posts first-loss capital. Must be the vault Owner.
-
-| Field | Meaning for Tide |
-|-------|------------------|
-| `Owner` / `Account` | Curator account / Loan Broker pseudo-account (holds cover) |
-| `VaultID` | The Tide vault |
-| `DebtTotal` | Principal + interest the protocol owes the vault |
-| `DebtMaximum` | Debt ceiling (`0` = none) |
-| `CoverAvailable` | First-loss capital currently posted |
-| `CoverRateMinimum` | Min cover as % of `DebtTotal` (1/10th bps) |
-| `CoverRateLiquidation` | % of min cover liquidated on default |
-| `ManagementFeeRate` | Curator's cut of interest (0–10000) |
-
-### 2.3 Loan (XLS-66)
-One per borrower position. Notable fields: `Borrower`, `PrincipalOutstanding`,
-`TotalValueOutstanding`, `InterestRate`, `LateInterestRate`, `CloseInterestRate`,
-`StartDate`, `NextPaymentDueDate`, `PaymentInterval`, `GracePeriod`,
-`PaymentRemaining`, `PeriodicPayment`, `Flags` (`lsfLoanDefault`, `lsfLoanImpaired`).
-
-### 2.4 AMM pool (XLS-30)
-An `lyXRP / XRP` pool seeded by Tide so holders can swap out instantly instead of
-queuing for vault redemption. Also gives live price discovery on the yield token.
+### Why now
+- **x402** ([Coinbase spec](https://www.coinbase.com/developer-platform/discover/launches/x402)) revives HTTP `402` for inline, agent-native stablecoin payments.
+- **[XRPL AI Starter Kit](https://ripple.com/insights/xrpl-ai-starter-kit/)** (Jun 10, 2026): an Agent Wallet skill, a Payment skill, and an MCP server, with settlement via **t54**'s ([t54.ai](https://t54.ai)) x402 facilitator on XRPL — agents pay in XRP or RLUSD with no keys/accounts/human.
+- **Mastercard** named Ripple a partner in "Agent Pay for Machines" (Jun 2026), anchoring XRPL as the settlement layer; Ripple later joined the **x402 Foundation** under the Linux Foundation (Jul 2026), giving the standard neutral governance.
+- **Traction:** 1.4M+ agentic transactions have already settled through t54's XRPL x402 facilitator (Virtuals.io named an ecosystem launch partner) — the rail is live, not theoretical.
 
 ---
 
-## 3. Transactions used
+## 2. The x402 request lifecycle
 
-**Vault (XLS-65)**
-- `VaultCreate` — fields: `Asset=XRP`, `Flags` (`tfVaultPrivate`, `tfVaultShareNonTransferable`), `Scale`, `AssetsMaximum`, `WithdrawalPolicy`, `DomainID`
-- `VaultSet` — `VaultID`, `Data`, `AssetsMaximum`, `DomainID`
-- `VaultDeposit` — `VaultID`, `Amount` → mints `lyXRP`
-- `VaultWithdraw` — `VaultID`, `Amount` (assets or shares), `Destination` → burns `lyXRP`
-- `VaultClawback`, `VaultDelete`
+```
+1. Client → GET /resource
+2. Server → 402 Payment Required            (header: PAYMENT-REQUIRED)
+             { asset, amount, payTo, network, nonce, expiry }
+3. Client  → signs an XRPL payment for those terms
+4. Client → GET /resource                   (header: PAYMENT-SIGNATURE = signed payload)
+5. Server → facilitator.verify(payload)
+6. Facilitator → submits/settles XRPL payment (XRP or RLUSD) → validated ledger
+7. Server → 200 OK + resource               (header: PAYMENT-RESPONSE = SettlementResponse w/ txid)
+```
 
-**Loan Broker / Loans (XLS-66)**
-- `LoanBrokerSet` — create/update broker: `VaultID`, `ManagementFeeRate`, `DebtMaximum`, `CoverRateMinimum`, `CoverRateLiquidation`
-- `LoanBrokerCoverDeposit` / `LoanBrokerCoverWithdraw` — manage first-loss capital
-- `LoanSet` — originate loan (**bilaterally signed**): `LoanBrokerID`, `Counterparty`, `CounterpartySignature`, `PrincipalRequested`, `InterestRate`, `PaymentTotal`, `PaymentInterval`, `GracePeriod`, fee fields
-- `LoanPay` — borrower repayment: `LoanID`, `Amount`, flags (`tfLoanFullPayment`, `tfLoanLatePayment`)
-- `LoanManage` — `tfLoanImpair` / `tfLoanUnimpair` / `tfLoanDefault`
-- `LoanDelete`, `LoanBrokerDelete`
-
-**AMM (XLS-30)**
-- `AMMCreate` (seed `lyXRP/XRP`), `AMMDeposit`, `Payment` (swap for instant exit)
-
----
-
-## 4. Core flows
-
-### 4.1 Lender — deposit (mint lyXRP)
-1. User connects wallet, enters XRP amount.
-2. App submits `VaultDeposit { VaultID, Amount }`.
-3. Vault mints `lyXRP` to the user at the current exchange rate.
-4. Dashboard shows position = `lyXRP balance × redemption rate`.
-
-### 4.2 Yield generation (curator)
-1. Curator backend monitors `AssetsAvailable` and demand.
-2. Originates `LoanSet` (broker + borrower both sign).
-3. Borrower draws `PrincipalRequested − LoanOriginationFee`.
-4. On `LoanPay`, interest (net of `ManagementFeeRate`) flows into `AssetsTotal` →
-   `lyXRP` redemption rate rises.
-
-### 4.3 Lender — exit
-- **Standard:** `VaultWithdraw` (burns `lyXRP`) — subject to `AssetsAvailable` and the
-  first-come-first-serve queue when funds are lent out.
-- **Instant (Tide differentiator):** swap `lyXRP → XRP` through the AMM pool, any time,
-  at market price (a small spread vs. NAV is the cost of immediacy).
-
-### 4.4 Borrower
-1. Requests a loan (amount, term).
-2. Curator reviews → constructs `LoanSet`; both parties sign.
-3. Borrower repays on schedule via `LoanPay`; late/default handled by `LoanManage`.
+- **PAYMENT-REQUIRED** — the server's quote: asset (`RLUSD` issuer/currency or `XRP`),
+  amount, destination (the merchant's XRPL account or a Payper sub-address), network
+  (`mainnet`), a nonce, and an expiry.
+- **PAYMENT-SIGNATURE** — the client's signed payment payload the facilitator can settle.
+- **PAYMENT-RESPONSE** — the x402 `SettlementResponse` (base64), carrying the settled XRPL `txid` so the client (and dashboard) can verify on-ledger.
 
 ---
 
-## 5. Yield & risk model
+## 3. Core objects (Payper model)
 
-- **APY (displayed):** annualized from realized loan interest net of `ManagementFeeRate`,
-  computed off-chain from loan terms + repayment history.
-- **First-loss cover:** defaults liquidate `CoverAvailable` before touching depositors;
-  if `CoverAvailable < DebtTotal × CoverRateMinimum`, new loans pause and fees rebuild cover.
-- **Impairment:** `tfLoanImpair` raises `LossUnrealized`, immediately lowering the
-  redemption rate so exiting late doesn't dump loss on remaining holders.
-- **Cover-ratio health bar** is a first-class UI element (analogous to Aave's health factor).
+| Object | What it is |
+|--------|------------|
+| **Service** | A developer-registered API. Has an owner XRPL account + RLUSD trust line. |
+| **Endpoint** | A priced route on a Service: `{ path, price, asset, description }`. |
+| **Quote** | A `PAYMENT-REQUIRED` payload: asset, amount, payTo, nonce, expiry. |
+| **Payment** | A settled XRPL transaction (XRP or RLUSD) tied to a request, keyed by nonce → txid. |
+| **Agent** | A paying client with an XRPL wallet (Starter Kit Agent Wallet skill). |
+| **Ledger event** | An indexed, on-chain payment surfaced in the dashboard/feed. |
 
----
-
-## 6. MVP scope
-
-**In:** single curated XRP vault · `lyXRP` mint/redeem · one demo loan to repayment
-(visible APY climb) · loan-book + cover-health dashboard · `lyXRP/XRP` AMM instant exit.
-
-**Stretch:** multi-vault aggregator/router (OPP-033) · private vault via Credentials/Permissioned Domain · borrower onboarding.
-
-**Out (be explicit):** on-chain automated underwriting, decentralized curation. MVP
-curator is a trusted role (as with Yearn/Morpho curators).
+On-chain, a Payment is a **native XRPL `Payment` transaction** — XRP, or **RLUSD**
+(a trust-line/IOU token issued by Ripple). No custom ledger objects, no contracts.
 
 ---
 
-## 7. Open questions / to verify on devnet
+## 4. Transactions & primitives used (all live on mainnet)
 
-- Exact `xrpl.js` support + type defs for the XLS-65/66 transactions (may need raw JSON tx).
-- MPT support in target wallets (Xaman / Crossmark) for holding/transferring `lyXRP`.
-- The bilateral `LoanSet` signing flow (collecting `CounterpartySignature`) UX.
-- Whether XLS-65/66 are enabled on the chosen devnet endpoint at build time.
+**Settlement**
+- `Payment` — the per-request settlement (XRP or RLUSD). One per paid call.
+- `TrustSet` — services/agents establish an RLUSD trust line (one-time onboarding step).
+
+**Scale (roadmap, not MVP)**
+- `PaymentChannelCreate` / `PaymentChannelClaim` — off-ledger streaming for high-frequency
+  callers; many signed micro-claims batched into one on-ledger settlement. **Note:** this
+  *reduces* on-chain tx count, so it is a scalability story, not the buildathon MVP.
+
+**Facilitator**
+- t54's XRPL x402 facilitator ([t54.ai](https://t54.ai)) performs verify + settle. Payper delegates to it,
+  with a direct-`Payment` fallback if the facilitator is unavailable/rate-limited.
+
+---
+
+## 5. Core flows
+
+### 5.1 Developer — monetize an endpoint
+1. Register a Service (connect XRPL wallet, set RLUSD trust line if needed).
+2. Wrap a route: `payper({ price: "0.01", asset: "RLUSD" })` (Express/Next middleware) — or
+   point traffic at the hosted proxy with a config.
+3. The route now returns `402` with a Quote for unpaid requests.
+
+### 5.2 Agent — pay for a call
+1. Agent requests the resource → gets `402` + Quote.
+2. Agent's wallet (Starter Kit) signs a payment for the quoted terms.
+3. Agent retries with `PAYMENT-SIGNATURE`; facilitator settles on XRPL; agent gets `200` + receipt.
+
+### 5.3 Discovery
+- Agent (or human) browses the marketplace; each listing exposes its endpoints, prices, and a
+  machine-readable manifest an agent can consume directly.
+
+### 5.4 Observe
+- Indexer watches the merchant accounts on XRPL; the dashboard streams settled payments:
+  revenue per endpoint, paying agents, tx count, live feed.
+
+---
+
+## 6. Settlement design (one real decision)
+
+- **Default — direct per-request settlement.** One XRPL `Payment` per call. Simple, verifiable,
+  and it **maximizes on-chain activity** (the prize metric). This is the MVP.
+- **Asset — price in RLUSD, accept XRP.** RLUSD gives a stable pricing unit and the institutional
+  narrative; XRP is the low-friction fallback. Both supported by the Starter Kit.
+- **Scale — Payment Channels.** For streaming/high-frequency, batch off-ledger claims and settle
+  periodically. Roadmap only (it lowers on-chain tx count).
+
+---
+
+## 7. MVP scope
+
+**In:** gateway middleware + SDK (one-line monetization) · hosted proxy · RLUSD/XRP settlement
+via the facilitator · live dashboard with on-chain payment feed + per-endpoint revenue · seeded
+marketplace (3–4 services) · autonomous reference agent generating real volume.
+
+**Stretch:** Payment-Channel streaming mode · multi-service developer accounts · usage-based
+pricing tiers · agent spend policies/budgets · MCP endpoint so agents discover Payper services natively.
+
+**Out (be explicit):** custody of user funds (settlement is wallet-to-wallet via the facilitator) ·
+fiat on/off-ramp · non-XRPL settlement.
+
+---
+
+## 8. Prize alignment (Make Waves)
+
+The buildathon rewards **real users** and **measurable on-chain activity** on a working product
+(testnet/trial/mainnet accepted; prototypes excluded). Payper is engineered for both:
+
+| Lever | How Payper scores |
+|-------|-------------------|
+| On-chain activity | 1 settled XRPL `Payment` per API call — compounds with traffic. |
+| Users | Every developer who wraps an endpoint; plus paying agents. |
+| Jury (best overall) | Dead-center on Ripple's flagship 2026 agentic-payments push (x402 + RLUSD + Mastercard). |
+| Feasibility | Live mainnet primitives + shipped Starter Kit — zero unreleased-amendment risk. |
+
+---
+
+## 9. Open questions / to verify
+
+- Availability, rate limits, and mainnet vs. devnet gating of the **t54 x402 facilitator**
+  ([t54.ai](https://t54.ai)); confirm the direct-`Payment` fallback path.
+- **x402 header schema:** `PAYMENT-REQUIRED` / `PAYMENT-SIGNATURE` / `PAYMENT-RESPONSE` are confirmed
+  against the [x402 v2 HTTP transport spec](https://github.com/coinbase/x402/blob/main/specs/transports-v2/http.md);
+  still verify the exact `PaymentRequired` / `PaymentPayload` field shapes the t54 facilitator expects on XRPL
+  (asset/issuer encoding, nonce, expiry).
+- **RLUSD onboarding UX** — trust-line setup for services and agents; whether the Starter Kit
+  automates it.
+- **xrpl.js** helpers used by the Starter Kit's Payment skill (versions, typed builders).
+- Whether to expose an **MCP server** so agents discover Payper-listed services natively.

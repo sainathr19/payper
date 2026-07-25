@@ -1,86 +1,103 @@
-# 🌊 Tide — Liquid Yield for XRP
+# 💧 Payper — Pay-per-call payments for AI agents on XRPL
 
-> Deposit XRP, receive **lyXRP** — a liquid, yield-bearing token built on XRPL's
-> native lending stack (XLS-65 + XLS-66), with instant exit via an on-chain AMM.
+> Monetize any API in one line. Agents pay **per request** in RLUSD or XRP over
+> **x402**, settled natively on the XRP Ledger. Think **Stripe for the agent economy**.
 
-Built for the **[Make Waves on XRPL](https://hackathons.xrpl-commons.org/hackathons/make-waves-041f8ce6)** hackathon (Jun–Sep 2026).
+Built for the **[Make Waves on XRPL](https://hackathons.xrpl-commons.org/hackathons/make-waves-041f8ce6)** buildathon (Jun 21 – Sep 21, 2026).
 
 ---
 
-## The problem
+## The opportunity
 
-Over **$110B of XRP sits idle**, earning nothing. Meanwhile XRPL just shipped a
-native lending stack — the **XLS-65 Single Asset Vault** and **XLS-66 Lending
-Protocol** — but there's **no consumer-facing app** on top of it. The primitives
-exist; the product doesn't.
+The web's payment layer was never built for machines. AI agents now *want* to buy
+things — API calls, inference, data, tools — but they can't hold a credit card or click
+"subscribe." **x402** revives the dormant HTTP `402 Payment Required` status code so a
+server can demand payment inline and an agent can pay it autonomously, no human, no API key.
 
-## What Tide does
+Ripple just made XRPL a first-class x402 rail: the **[XRPL AI Starter Kit](https://ripple.com/insights/xrpl-ai-starter-kit/)**
+(shipped Jun 10, 2026) provides an Agent Wallet skill, a Payment skill, and an MCP server, with
+settlement handled by **[t54](https://t54.ai)**'s x402 facilitator on XRPL — agents pay in **XRP or RLUSD**
+with no keys, accounts, or human. Momentum is real: Mastercard named Ripple a partner in its
+**"Agent Pay for Machines"** network (Jun 2026), Ripple joined the **x402 Foundation** under the Linux
+Foundation (Jul 2026), and **1.4M+ agentic transactions** have already settled through t54's XRPL
+facilitator. The rail exists. **The developer layer on top doesn't.**
 
-Tide turns idle XRP into a productive, liquid asset:
+## What Payper does
 
-1. **Deposit XRP** into a Tide vault (XLS-65).
-2. **Receive `lyXRP`** — the vault's native share token (an MPT). It's transferable
-   and its value grows as the pool earns interest.
-3. **Yield is generated** by XLS-66: pooled funds are lent out as fixed-term,
-   first-loss-cover-protected loans. Interest flows back into the vault, lifting the
-   `lyXRP` exchange rate.
-4. **Exit instantly** — a seeded `lyXRP/XRP` AMM pool lets holders swap out at any
-   time, instead of waiting in the vault's first-come-first-serve withdrawal queue.
+Payper is the layer that makes agent payments *usable and visible*:
 
-`lyXRP` is to XRP lending what stETH is to ETH staking — except it's a native ledger
-object, no smart contract required. (We call it *liquid yield*, not staking — XRPL
-isn't proof-of-stake.)
+1. **Monetize** — wrap any API endpoint with one line of middleware (or point traffic at
+   our hosted proxy). It instantly speaks x402: returns `402` with a price, hands settlement
+   to the XRPL facilitator, releases the response on payment.
+2. **Discover** — a marketplace of x402-priced services (inference, data, tools) that agents
+   can browse and pay for.
+3. **Observe** — a live dashboard of the on-chain agent economy: revenue per endpoint,
+   paying agents, and a real-time feed of settled XRPL payments.
+4. **Transact** — a reference autonomous agent (built on the Starter Kit) that discovers and
+   pays for services on its own, generating continuous real on-chain volume.
 
-## Why it matters
+Every API call becomes **one on-chain XRPL payment**. Developers get paid per use; agents
+get frictionless access; the ledger gets measurable activity.
 
-One product closes three gaps from the XRPL builder-opportunities registry:
+## Why XRPL
 
-| Gap | What it is | Tide's piece |
-|-----|-----------|--------------|
-| **OPP-043** | Liquid Staked XRP (a stETH-style liquid token) | The `lyXRP` token + mint/redeem UX |
-| **OPP-033** | Native Yield Aggregator | Curator/router across vaults for best yield |
-| **OPP-034** | Lending front-end on XLS-65 | First end-user lend/borrow + yield dashboard |
+- **Sub-cent fees + 3–5s finality** — the only way per-call micropayments make economic sense.
+- **RLUSD** — a stable unit to price services in, plus the institutional/Mastercard narrative.
+- **Native x402 facilitator** — the **t54** ([t54.ai](https://t54.ai)) x402 facilitator on XRPL settles per request, no contracts.
+- **Payment Channels** — a native off-ledger primitive for streaming/high-frequency scale.
 
-## How it works
+## How it works (x402 in 20 seconds)
 
-**On-chain (native XRPL primitives):**
-- **Vault** (XLS-65) — custodies pooled XRP, issues the `lyXRP` share MPT.
-- **Loan Broker** (XLS-66) — originates loans, posts first-loss cover.
-- **AMM pool** (XLS-30) — `lyXRP/XRP` for instant secondary-market exit + price discovery.
+```
+Agent ──GET /resource──▶ Payper gateway
+Agent ◀─402 Payment Required (price, asset, pay-to)── gateway   [PAYMENT-REQUIRED header]
+Agent ──GET /resource + signed payment──▶ gateway               [PAYMENT-SIGNATURE header]
+                          gateway ──verify + settle──▶ XRPL facilitator ──▶ XRP Ledger
+Agent ◀─────────200 OK + response───────── gateway
+```
 
-**App layer (this repo):**
-- **Frontend** — deposit/redeem, live APY + position dashboard, borrower flow, one-click exit.
-- **Curator backend** — runs loan-broker ops, manages the cover ratio, indexes vault/loan
-  state directly from `rippled`/Clio, computes APY.
+## Components (this repo)
+
+- **Gateway / SDK** — drop-in x402 middleware + a hosted proxy for any stack; parses payment
+  headers, prices requests, delegates settlement to the XRPL facilitator.
+- **Dashboard** — live revenue + on-chain payment feed, per-endpoint analytics ("the agent economy").
+- **Marketplace** — directory of x402-priced services agents can discover.
+- **Reference agent** — autonomous consumer built on the Starter Kit's Agent Wallet + Payment skills.
 
 ## Documentation
 
-- [`docs/SPEC.md`](docs/SPEC.md) — protocol & product spec (objects, transactions, flows, yield/risk model)
+- [`docs/SPEC.md`](docs/SPEC.md) — protocol & product spec (x402 flow, objects, settlement, MVP scope)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system architecture, components, data flow
 - [`docs/ui-inspiration.md`](docs/ui-inspiration.md) — curated UI references & design direction
 
 ## Tech stack
 
-- **Ledger:** XRPL (native — *not* the EVM sidechain), XLS-65 / XLS-66 / XLS-30 (AMM)
+- **Ledger:** XRPL Mainnet (native — *not* the EVM sidechain), Payments + RLUSD; Payment Channels (scale)
+- **Rail:** Ripple XRPL AI Starter Kit (Agent Wallet skill, Payment skill, MCP server) + t54's x402 facilitator
 - **SDK:** [`xrpl.js`](https://github.com/XRPLF/xrpl.js)
-- **Network:** XRPL Devnet (XLS-65/66 enabled)
+- **Settlement asset:** RLUSD (priced), XRP (fallback)
 - **Frontend:** Next.js + TypeScript
-- **Wallet:** Xaman / Crossmark (MPT-capable)
+- **Gateway:** Node/TS middleware + hosted proxy
 
 ## Roadmap
 
-- [ ] **W1–2** — Devnet spike: vault create/deposit/withdraw + loan broker + loan-to-repayment end to end
-- [ ] **W3–5** — `lyXRP` mint/redeem + yield & position dashboard
-- [ ] **W6–7** — Borrower flow (bilateral `LoanSet` signing) + curator backend + cover management
-- [ ] **W8–9** — `lyXRP/XRP` AMM pool + instant-exit UX
-- [ ] **W10–11** — Multi-vault aggregator/router + polish
+- [ ] **W1–2** — Starter Kit spike: one agent pays one endpoint via the facilitator on mainnet, end to end
+- [ ] **W3–5** — Gateway middleware + SDK (one-line monetization); wrap first real service
+- [ ] **W6–8** — Dashboard + live tx feed; seed marketplace (3–4 services); autonomous demo agent
+- [ ] **W9–11** — Onboard 3–5 external builders; accumulate on-chain volume; polish
 - [ ] **W12** — Demo, pitch, docs, submission
+
+## Prize alignment (Make Waves)
+
+Payper is built to score on the buildathon's actual metrics: **real users** (every developer
+who wraps an endpoint) and **measurable on-chain activity** (one settled XRPL payment per call).
+Runs on **mainnet** with **live primitives only** — no dependency on unreleased amendments.
 
 ## Status & disclaimer
 
-🚧 Hackathon project, in active development on **XRPL Devnet**. Not audited, not for
-production use. In the MVP the vault curator is a trusted role (as with Yearn/Morpho
-curators) — progressive decentralization is on the roadmap.
+🚧 Buildathon project, in active development. Not audited, not for production use. Agent-payment
+settlement depends on t54's XRPL x402 facilitator; a direct-XRPL-payment fallback is planned
+in case the facilitator is rate-limited or gated.
 
 ## License
 

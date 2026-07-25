@@ -1,6 +1,6 @@
-# Tide — UI Inspiration & Design Direction
+# Payper — UI Inspiration & Design Direction
 
-A curated reference set for Tide's interface. For each product: the **link**, what
+A curated reference set for Payper's interface. For each product: the **link**, what
 screen to study, and **what to borrow**. Capture your own screenshots into
 `docs/inspiration/` (see the folder's README) and reference them next to each entry.
 
@@ -9,68 +9,69 @@ screen to study, and **what to borrow**. Capture your own screenshots into
 
 ---
 
-## 1. Liquid-staking / liquid-token UX
-| Product | Link | Study | Borrow for Tide |
-|---------|------|-------|-----------------|
-| **Lido** | https://stake.lido.fi | Stake card, stETH balance, APR badge | The single clean deposit card + "you'll receive `lyXRP`" preview + live APR |
-| **Origin OETH** | https://www.originprotocol.com/oeth | Yield token dashboard | Value-accruing token framing, simple yield explainer |
-| **Sky / Spark sUSDS** | https://spark.fi | Savings deposit | "Savings rate" simplicity for a non-degen audience |
+## 1. Developer payments / dashboards (the core model)
+| Product | Link | Study | Borrow for Payper |
+|---------|------|-------|-------------------|
+| **Stripe** | https://dashboard.stripe.com | Payments dashboard, revenue graph, event log | The "revenue + live event feed" layout; clean money numbers; the *"one line of code"* onboarding framing |
+| **Stripe Docs** | https://docs.stripe.com | API-first docs, copy-paste snippets | Developer console DX; "wrap your endpoint" quickstart |
+| **Vercel** | https://vercel.com/dashboard | Project + usage analytics | Usage/analytics cards, clean dev-tool aesthetic |
 
-## 2. Vaults & yield aggregation
-| Product | Link | Study | Borrow for Tide |
-|---------|------|-------|-----------------|
-| **Yearn** | https://yearn.fi/vaults | Vault list + vault detail | APY column, TVL, vault detail page layout (for OPP-033 multi-vault) |
-| **Morpho** | https://app.morpho.org | Curated vaults, risk disclosures | Curator framing, clean institutional look, cover/risk transparency |
-| **Pendle** | https://app.pendle.finance | PT/YT, pro charts | Yield charts, "fixed vs variable" presentation, advanced-mode toggle |
-| **Superform** | https://www.superform.xyz | Cross-vault router | Aggregator/router UX patterns |
+## 2. Usage & API analytics
+| Product | Link | Study | Borrow for Payper |
+|---------|------|-------|-------------------|
+| **Cloudflare** | https://dash.cloudflare.com | Requests/traffic analytics | Request-volume charts, real-time counters |
+| **PostHog** | https://posthog.com | Event stream, live events | The live event feed component (settled-payment stream) |
+| **Helicone / OpenRouter** | https://openrouter.ai | Per-model/API usage + cost | Per-endpoint cost & usage tables (closest analog to per-endpoint revenue) |
 
-## 3. Lending dashboards (lender + borrower)
-| Product | Link | Study | Borrow for Tide |
-|---------|------|-------|-----------------|
-| **Aave** | https://app.aave.com | Supply/borrow dashboard, **health factor** | The cover-ratio **health bar**, supply/borrow split layout |
-| **Spark** | https://spark.fi | Lending market view | Market stats cards, utilization display |
-| **Maple / SOIL** | https://maple.finance | Institutional credit, loan book | Loan-book table, borrower profiles, term display (closest to XLS-66) |
+## 3. Marketplaces / directories
+| Product | Link | Study | Borrow for Payper |
+|---------|------|-------|-------------------|
+| **RapidAPI** | https://rapidapi.com | API marketplace, listing cards | Service listing cards, pricing display, category browse |
+| **OpenRouter models** | https://openrouter.ai/models | Model directory + price/token | Machine-readable pricing surfaced cleanly; filter/sort UX |
 
-## 4. Swap / instant-exit
-| Product | Link | Study | Borrow for Tide |
-|---------|------|-------|-----------------|
-| **Jupiter** | https://jup.ag | Swap UX, route preview | The instant-exit swap modal (`lyXRP → XRP`), price-impact display |
-| **Uniswap** | https://app.uniswap.org | Swap component, slippage settings | Token selector, min-received, slippage |
+## 4. Crypto / on-chain activity views
+| Product | Link | Study | Borrow for Payper |
+|---------|------|-------|-------------------|
+| **XRPScan** | https://xrpscan.com | Live XRPL tx feed, account activity | The real-time on-chain payment feed; txid linking |
+| **Basescan / x402 dashboards** | https://basescan.org | On-chain activity counters | Cumulative tx / volume counters for the "agent economy" hero |
+| **Dune** | https://dune.com | Dashboard composition | Metric cards, time-series styling for volume over time |
 
-## 5. Analytics / charts
-| Product | Link | Study | Borrow for Tide |
-|---------|------|-------|-----------------|
-| **DefiLlama** | https://defillama.com | Yield + TVL charts | APY history sparkline, TVL chart |
-| **Dune** | https://dune.com | Dashboard composition | Metric cards, time-series styling |
+## 5. Agent / AI-native UX
+| Product | Link | Study | Borrow for Payper |
+|---------|------|-------|-------------------|
+| **Ripple XRPL AI Starter Kit** | https://ripple.com/insights/xrpl-ai-starter-kit/ | The official agent-payment flow | Terminology + the agent-pays-autonomously demo framing |
+| **Coinbase x402** | https://www.coinbase.com/developer-platform/discover/launches/x402 | The x402 protocol explainer | How to explain "402 → pay → 200" to a non-expert judge |
 
 ---
 
 ## Design direction
 
-**Theme:** "Tide / ocean" — calm, liquid, trustworthy (not degen-neon).
-- **Palette:** deep ocean navy/teal base, soft foam highlights, one bright accent
-  (e.g. aqua/cyan) for primary actions. Dark mode default; clean light mode.
-- **Motion:** subtle wave/ripple on deposit confirm; number roll-up when the
-  redemption rate / position ticks. Keep it tasteful (Framer Motion).
-- **Typography:** a precise grotesque for numbers (e.g. Inter / Geist) so balances
-  and APYs read crisply; larger display weight for the hero APY.
+**Theme:** "the machine economy, made visible" — precise, fast, developer-grade, a little alive.
+- **Palette:** near-black/ink base with a clean light mode; one electric accent (e.g. XRPL-blue
+  or a vivid cyan) for money/success; green for settled payments. Restrained, not degen-neon.
+- **Motion:** payments *land* — a settled payment animates into the live feed; counters roll up as
+  volume accrues. Tasteful (Framer Motion). The live feed ticking is the emotional core of the demo.
+- **Typography:** a precise grotesque with strong tabular figures (Inter / Geist) so amounts, tx
+  counts, and prices read crisply; larger display weight for the cumulative-volume hero number.
 
 **Key screens to design (in priority order):**
-1. **Deposit card** — amount in (XRP) → preview lyXRP out + current APY. (Lido-style)
-2. **Position dashboard** — your lyXRP, value in XRP, earned yield, redemption rate, APY chart.
-3. **Vault detail** — TVL, utilization, **cover-ratio health bar**, loan book table. (Aave + Maple)
-4. **Instant-exit modal** — swap lyXRP→XRP via AMM, price impact, "vs. standard withdraw" compare. (Jupiter)
-5. **Borrower flow** — request loan, co-sign, repayment schedule. (Maple)
-6. (Stretch) **Aggregator view** — compare vaults by APY/risk, route deposit. (Yearn/Superform)
+1. **Live dashboard / "agent economy"** — cumulative on-chain volume hero, revenue, paying agents,
+   and a real-time settled-payment feed (txids linking to XRPScan). *This is the demo.* (Stripe + XRPScan + PostHog)
+2. **Developer console** — register service, connect wallet, RLUSD trust line, wrap endpoint with the
+   one-line snippet + copy button. (Stripe Docs)
+3. **Per-endpoint analytics** — revenue, calls, avg price, top agents for a single endpoint. (Helicone/Cloudflare)
+4. **Marketplace** — browse/search x402-priced services; listing cards with price + manifest. (RapidAPI/OpenRouter)
+5. **Agent activity view** — a single agent's spend feed (great for the autonomous-agent demo). (XRPScan)
+6. (Stretch) **Streaming/Payment-Channel view** — batched claims vs. on-ledger settles.
 
-**Component kit suggestion:** Next.js + Tailwind + **shadcn/ui**, **Recharts** (or visx)
-for charts, **Framer Motion** for motion. This gets a polished, non-templated look fast
-— and the `frontend-design` skill can help push the visual identity beyond defaults.
+**Component kit suggestion:** Next.js + Tailwind + **shadcn/ui**, **Recharts** (or visx) for
+charts, **Framer Motion** for motion. Polished, non-templated look fast — and the `frontend-design`
+skill can push the visual identity beyond defaults.
 
 ---
 
 ## How to add your own captures
 1. Capture the screens above (your browser / a tool like Shottr or CleanShot).
-2. Save as `docs/inspiration/<product>-<screen>.png` (e.g. `lido-stake-card.png`).
-3. Reference inline here, e.g. `![Lido stake card](inspiration/lido-stake-card.png)`.
+2. Save as `docs/inspiration/<product>-<screen>.png` (e.g. `stripe-event-feed.png`).
+3. Reference inline here, e.g. `![Stripe event feed](inspiration/stripe-event-feed.png)`.
 These are for private design reference; keep them out of any public marketing.

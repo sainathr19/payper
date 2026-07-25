@@ -1,43 +1,88 @@
 /**
- * x402 asset: XRP (native) or an issued currency such as RLUSD.
- * For RLUSD, `currency` is the 160-bit hex code and `issuer` is Ripple's r-address.
+ * x402 v2 wire types, specialized for the XRPL "exact" scheme as implemented by
+ * t54's facilitator (https://xrpl-x402.t54.ai).
+ *
+ * Field names follow coinbase/x402 specs/x402-specification-v2.md. XRPL-specific
+ * details (the presigned Payment blob, InvoiceID replay protection) live in the
+ * scheme payload and `extra`.
  */
-export type Asset =
-  | { kind: "XRP" }
-  | { kind: "ISSUED"; currency: string; issuer: string };
 
-export type Network = "mainnet" | "testnet" | "devnet";
+export type Scheme = "exact";
 
-/** Contents of the 402 `PAYMENT-REQUIRED` header — the server's quote. */
-export interface PaymentRequired {
-  x402Version: number;
-  asset: Asset;
-  /** Decimal string in asset units, e.g. "0.01". */
+/**
+ * x402 network identifier. Exact XRPL values should be confirmed against the
+ * facilitator's `/supported` endpoint; these are our working constants.
+ */
+export const NETWORK = {
+  mainnet: "xrpl-mainnet",
+  testnet: "xrpl-testnet",
+  devnet: "xrpl-devnet",
+} as const;
+export type Network = (typeof NETWORK)[keyof typeof NETWORK];
+
+/** One accepted way to pay for a resource (the server's quote line item). */
+export interface PaymentRequirements {
+  scheme: Scheme;
+  network: string;
+  /** Amount in base units: drops for XRP, or issued-currency value for IOUs. */
   amount: string;
-  /** Merchant XRPL account (r...) that receives the payment. */
+  /** "XRP", or an issued-currency identifier (see `extra` for currency/issuer). */
+  asset: string;
+  /** Destination XRPL account (r...) that receives the payment. */
   payTo: string;
-  network: Network;
-  /** Unique per quote; ties the settled tx back to the request. */
-  nonce: string;
-  /** Unix seconds after which the quote is no longer valid. */
-  expiry: number;
+  maxTimeoutSeconds: number;
   resource?: string;
   description?: string;
+  /** Scheme-specific extras, e.g. `{ invoiceId }` and RLUSD currency/issuer. */
+  extra?: Record<string, unknown>;
 }
 
-/** Contents of the client's `PAYMENT-SIGNATURE` header. */
+/** Body of the 402 response (base64 in the `PAYMENT-REQUIRED` header). */
+export interface PaymentRequired {
+  x402Version: number;
+  accepts: PaymentRequirements[];
+  error?: string;
+}
+
+/** XRPL "exact" scheme payload: the payer-signed, presigned Payment. */
+export interface XrplExactPayload {
+  /**
+   * Hex `tx_blob` of the signed XRPL Payment (from `wallet.sign(tx).tx_blob`).
+   * TODO(W1–2): confirm the exact field name t54 expects (txBlob vs signedTransaction).
+   */
+  txBlob: string;
+}
+
+/** Body of the `PAYMENT-SIGNATURE` header (base64). */
 export interface PaymentPayload {
   x402Version: number;
-  nonce: string;
-  /** A payer-signed, presigned XRPL Payment tx blob the facilitator submits. */
-  signedTxBlob: string;
+  /** The chosen `PaymentRequirements` this payment satisfies. */
+  accepted: PaymentRequirements;
+  payload: XrplExactPayload;
+  resource?: string;
+  extensions?: Record<string, unknown>;
 }
 
-/** Contents of the server's `PAYMENT-RESPONSE` header (base64 SettlementResponse). */
-export interface SettlementResponse {
+/** Request body for both facilitator endpoints. */
+export interface FacilitatorRequest {
+  x402Version: number;
+  paymentPayload: PaymentPayload;
+  paymentRequirements: PaymentRequirements;
+}
+
+/** Response from `POST /verify`. */
+export interface VerifyResponse {
+  isValid: boolean;
+  payer?: string;
+  invalidReason?: string;
+}
+
+/** Response from `POST /settle` (also surfaced in the `PAYMENT-RESPONSE` header). */
+export interface SettleResponse {
   success: boolean;
-  /** Validated XRPL transaction hash, present on success. */
-  txid?: string;
-  ledgerIndex?: number;
-  error?: string;
+  /** Validated XRPL transaction hash. */
+  transaction: string;
+  network: string;
+  payer?: string;
+  errorReason?: string;
 }

@@ -1,4 +1,4 @@
-import type { PaymentRequired, PaymentPayload, SettlementResponse } from "./types.js";
+import type { PaymentRequired, PaymentPayload, SettleResponse } from "./types.js";
 
 export const X402_VERSION = 2;
 
@@ -25,6 +25,6 @@ export const encodePaymentPayload = (p: PaymentPayload): string => enc(p);
 export const decodePaymentPayload = (b64: string): PaymentPayload =>
   dec<PaymentPayload>(b64);
 
-export const encodeSettlementResponse = (r: SettlementResponse): string => enc(r);
-export const decodeSettlementResponse = (b64: string): SettlementResponse =>
-  dec<SettlementResponse>(b64);
+export const encodeSettleResponse = (r: SettleResponse): string => enc(r);
+export const decodeSettleResponse = (b64: string): SettleResponse =>
+  dec<SettleResponse>(b64);

@@ -1,46 +1,58 @@
+import { Client, Wallet } from "xrpl";
 import {
   HEADERS,
+  X402_VERSION,
   decodePaymentRequired,
   encodePaymentPayload,
-  type PaymentPayload,
-  type PaymentRequired,
+  signXrplPayment,
 } from "@payper/sdk";
 
+const TESTNET_WSS = "wss://s.altnet.rippletest.net:51233";
+
 /**
- * Autonomous reference agent (built on the XRPL AI Starter Kit's Agent Wallet +
- * Payment skills). It discovers marketplace services and pays for them on a loop,
- * generating continuous real on-chain volume.
+ * Autonomous reference agent (mirrors the XRPL AI Starter Kit's Agent Wallet +
+ * Payment skills). Discovers a resource, pays the 402 quote, retries.
  *
- * Flow per call:
  *   1. GET the resource → receive 402 + PAYMENT-REQUIRED quote.
- *   2. Sign an XRPL Payment for the quoted terms (Starter Kit wallet).
+ *   2. Sign an XRPL Payment for the quoted terms.
  *   3. Retry with PAYMENT-SIGNATURE → receive 200 + PAYMENT-RESPONSE (txid).
  */
-async function payFor(url: string): Promise<Response> {
+async function payFor(url: string, client: Client, wallet: Wallet): Promise<Response> {
   const first = await fetch(url);
   if (first.status !== 402) return first;
 
   const quoteB64 = first.headers.get(HEADERS.required);
   if (!quoteB64) throw new Error("402 without PAYMENT-REQUIRED header");
+
   const quote = decodePaymentRequired(quoteB64);
+  const requirements = quote.accepts[0];
+  if (!requirements) throw new Error("no acceptable payment requirements in quote");
 
-  const payload = await signPayment(quote);
-  return fetch(url, { headers: { [HEADERS.signature]: encodePaymentPayload(payload) } });
-}
-
-async function signPayment(_quote: PaymentRequired): Promise<PaymentPayload> {
-  // TODO(W1–2): use the Starter Kit Payment skill / xrpl.js to build + sign a
-  // presigned Payment tx blob for the quote, returning it as the payload.
-  throw new Error("signPayment not implemented (W1–2 spike)");
+  const payload = await signXrplPayment(client, wallet, requirements);
+  return fetch(url, {
+    headers: { [HEADERS.signature]: encodePaymentPayload({ ...payload, x402Version: X402_VERSION }) },
+  });
 }
 
 async function main(): Promise<void> {
   const target = process.argv[2] ?? "http://localhost:8787/inference";
-  const res = await payFor(target);
-  console.log("[agent]", res.status, await res.text());
+
+  const client = new Client(TESTNET_WSS);
+  await client.connect();
+  try {
+    const { wallet } = await client.fundWallet();
+    console.log(`[agent] funded wallet ${wallet.address}`);
+
+    const res = await payFor(target, client, wallet);
+    const receipt = res.headers.get(HEADERS.response);
+    console.log("[agent]", res.status, await res.text());
+    if (receipt) console.log("[agent] PAYMENT-RESPONSE:", receipt);
+  } finally {
+    await client.disconnect();
+  }
 }
 
 main().catch((err) => {
-  console.error("[agent] failed:", err.message);
+  console.error("[agent] failed:", err instanceof Error ? err.message : err);
   process.exitCode = 1;
 });

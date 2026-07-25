@@ -71,6 +71,9 @@ importers:
 
   packages/sdk:
     dependencies:
+      ripple-binary-codec:
+        specifier: ^2.0.0
+        version: 2.8.0
       xrpl:
         specifier: ^4.0.0
         version: 4.6.0

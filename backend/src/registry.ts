@@ -1,9 +1,9 @@
-import type { Asset } from "@payper/sdk";
-
 export interface Endpoint {
   path: string;
+  /** Amount in base units: drops for XRP, or issued-currency value for IOUs. */
   price: string;
-  asset: Asset;
+  /** "XRP" or an issued-currency identifier. */
+  asset: string;
   description?: string;
 }
 

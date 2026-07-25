@@ -77,9 +77,9 @@ facilitator** (t54.ai); the ledger does custody and finality.
 - Autonomous consumer built on the Starter Kit (Agent Wallet + Payment skills) that discovers
   marketplace services and pays for them on a loop — generates continuous real on-chain volume.
 
-### Shared (`/lib`)
+### Shared (`packages/sdk`)
 - x402 header schema + parsing, XRPL amount/asset helpers, facilitator client + direct-`Payment`
-  fallback, RLUSD currency/issuer config.
+  fallback, RLUSD currency/issuer config. Imported by gateway, backend, and agent as `@payper/sdk`.
 
 ---
 

@@ -1,0 +1,7 @@
+packages:
+  - "packages/*"
+  - "gateway"
+  - "backend"
+  - "agent"
+  - "web"
+  - "scripts"

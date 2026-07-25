@@ -1,0 +1,22 @@
+{
+  "name": "@payper/gateway",
+  "version": "0.0.0",
+  "description": "x402 middleware + hosted proxy: one-line API monetization for Payper.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@payper/sdk": "workspace:*",
+    "express": "^4.19.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

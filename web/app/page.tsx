@@ -24,12 +24,13 @@ export default function DashboardPage() {
   const seen = useRef<Set<string>>(new Set());
 
   function ingest(list: LedgerEvent[]) {
-    setEvents((prev) => {
-      const fresh = list.filter((e) => e.txid && !seen.current.has(e.txid));
-      fresh.forEach((e) => seen.current.add(e.txid));
-      if (fresh.length === 0) return prev;
-      return [...fresh, ...prev].slice(0, MAX_ROWS);
-    });
+    // Dedup against `seen` here, not inside the setEvents updater: React
+    // StrictMode double-invokes updaters, and mutating a ref in one would make
+    // the second pass treat every event as already-seen and drop it.
+    const fresh = list.filter((e) => e.txid && !seen.current.has(e.txid));
+    if (fresh.length === 0) return;
+    fresh.forEach((e) => seen.current.add(e.txid));
+    setEvents((prev) => [...fresh, ...prev].slice(0, MAX_ROWS));
   }
 
   useEffect(() => {

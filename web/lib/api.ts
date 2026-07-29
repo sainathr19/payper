@@ -78,3 +78,120 @@ export function relativeTime(unixSeconds: number): string {
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
 }
+
+export function fullTime(unixSeconds: number): string {
+  if (!unixSeconds) return "—";
+  return new Date(unixSeconds * 1000).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export function trimAmount(v: string | number): string {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return String(v);
+  return n.toLocaleString(undefined, { maximumFractionDigits: 6 });
+}
+
+/* ---------- Analytics derived client-side from the event list ---------- */
+
+export type Range = "day" | "week" | "month" | "all";
+
+const RANGE_SECONDS: Record<Exclude<Range, "all">, number> = {
+  day: 86400,
+  week: 7 * 86400,
+  month: 30 * 86400,
+};
+
+/** Events within `range` (by settlement timestamp). Events with no timestamp are kept. */
+export function filterByRange(events: LedgerEvent[], range: Range): LedgerEvent[] {
+  if (range === "all") return events;
+  const cutoff = Math.floor(Date.now() / 1000) - RANGE_SECONDS[range];
+  return events.filter((e) => !e.timestamp || e.timestamp >= cutoff);
+}
+
+export interface Insights {
+  count: number;
+  agents: number;
+  revenueByAsset: Record<string, number>;
+  avgByAsset: Record<string, number>;
+  txPerAgent: number;
+  successRate: number; // indexer only surfaces settled payments → 100%
+}
+
+export function computeInsights(events: LedgerEvent[]): Insights {
+  const revenueByAsset: Record<string, number> = {};
+  const counts: Record<string, number> = {};
+  const agents = new Set<string>();
+  for (const e of events) {
+    revenueByAsset[e.asset] = (revenueByAsset[e.asset] ?? 0) + Number(e.amount);
+    counts[e.asset] = (counts[e.asset] ?? 0) + 1;
+    agents.add(e.from);
+  }
+  const avgByAsset: Record<string, number> = {};
+  for (const a of Object.keys(revenueByAsset)) avgByAsset[a] = revenueByAsset[a] / counts[a];
+  return {
+    count: events.length,
+    agents: agents.size,
+    revenueByAsset,
+    avgByAsset,
+    txPerAgent: agents.size ? events.length / agents.size : 0,
+    successRate: events.length ? 100 : 0,
+  };
+}
+
+/** Chart colors, assigned per asset in first-seen order. */
+export const CHART_COLORS = ["#8ea0f0", "#a3a7ad", "#86efac", "#f0b48e"];
+
+export interface DailySeries {
+  labels: string[];
+  series: { name: string; color: string; points: number[] }[];
+}
+
+/** Bucket settled volume per day, one stacked series per asset. */
+export function dailySeries(events: LedgerEvent[]): DailySeries {
+  const dayFmt = (t: number) =>
+    new Date(t * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+  const dated = events.filter((e) => e.timestamp);
+  if (dated.length === 0) return { labels: [], series: [] };
+
+  const dayKeys: string[] = [];
+  const seen = new Set<string>();
+  const assets: string[] = [];
+  const byDayAsset = new Map<string, Map<string, number>>();
+
+  // Oldest → newest for left-to-right time.
+  for (const e of [...dated].sort((a, b) => a.timestamp - b.timestamp)) {
+    const key = dayFmt(e.timestamp);
+    if (!seen.has(key)) {
+      seen.add(key);
+      dayKeys.push(key);
+    }
+    if (!assets.includes(e.asset)) assets.push(e.asset);
+    const m = byDayAsset.get(key) ?? new Map<string, number>();
+    m.set(e.asset, (m.get(e.asset) ?? 0) + Number(e.amount));
+    byDayAsset.set(key, m);
+  }
+
+  const series = assets.map((asset, i) => ({
+    name: assetLabel(asset),
+    color: CHART_COLORS[i % CHART_COLORS.length],
+    points: dayKeys.map((d) => byDayAsset.get(d)?.get(asset) ?? 0),
+  }));
+
+  return { labels: dayKeys, series };
+}
+
+/** Serialize events to CSV for the Transactions export. */
+export function toCSV(events: LedgerEvent[]): string {
+  const head = ["txid", "from", "to", "amount", "asset", "ledgerIndex", "timestamp"];
+  const rows = events.map((e) =>
+    [e.txid, e.from, e.to, e.amount, e.asset, e.ledgerIndex, e.timestamp]
+      .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
+      .join(","),
+  );
+  return [head.join(","), ...rows].join("\n");
+}

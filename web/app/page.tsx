@@ -1,71 +1,46 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { useLedger } from "../lib/useLedger";
+import AreaChart from "../components/AreaChart";
+import CopyButton from "../components/CopyButton";
 import {
   EXPLORER,
   assetLabel,
-  getAnalytics,
-  getEvents,
+  computeInsights,
+  dailySeries,
+  filterByRange,
+  fullTime,
   relativeTime,
   shortId,
-  streamEvents,
-  type Analytics,
-  type LedgerEvent,
-  type StreamStatus,
+  trimAmount,
+  type Range,
 } from "../lib/api";
 
-const MAX_ROWS = 60;
+const RANGES: { key: Range; label: string }[] = [
+  { key: "day", label: "Past day" },
+  { key: "week", label: "Past week" },
+  { key: "month", label: "Past month" },
+  { key: "all", label: "All time" },
+];
 
 export default function DashboardPage() {
-  const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [events, setEvents] = useState<LedgerEvent[]>([]);
-  const [status, setStatus] = useState<StreamStatus>("connecting");
-  const [offline, setOffline] = useState(false);
-  const seen = useRef<Set<string>>(new Set());
+  const { events, status, offline, loading, isFresh } = useLedger();
+  const [range, setRange] = useState<Range>("all");
 
-  function ingest(list: LedgerEvent[]) {
-    // Dedup against `seen` here, not inside the setEvents updater: React
-    // StrictMode double-invokes updaters, and mutating a ref in one would make
-    // the second pass treat every event as already-seen and drop it.
-    const fresh = list.filter((e) => e.txid && !seen.current.has(e.txid));
-    if (fresh.length === 0) return;
-    fresh.forEach((e) => seen.current.add(e.txid));
-    setEvents((prev) => [...fresh, ...prev].slice(0, MAX_ROWS));
-  }
+  const inRange = useMemo(() => filterByRange(events, range), [events, range]);
+  const ins = useMemo(() => computeInsights(inRange), [inRange]);
+  const chart = useMemo(() => dailySeries(inRange), [inRange]);
 
-  useEffect(() => {
-    let es: EventSource | undefined;
-
-    (async () => {
-      try {
-        const [a, e] = await Promise.all([getAnalytics(), getEvents()]);
-        setAnalytics(a);
-        ingest(e);
-      } catch {
-        setOffline(true);
-      }
-    })();
-
-    es = streamEvents(
-      (e) => {
-        ingest([e]);
-        getAnalytics().then(setAnalytics).catch(() => {});
-      },
-      setStatus,
-    );
-
-    return () => es?.close();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const revenue = analytics ? Object.entries(analytics.revenueByAsset) : [];
+  const revenue = Object.entries(ins.revenueByAsset);
+  const primaryAsset = revenue.length ? assetLabel(revenue[0][0]) : "";
 
   return (
     <section>
-      <div className="head">
+      <div className="page-head">
         <div>
-          <h1>The agent economy, live</h1>
-          <p className="accent">One settled XRPL payment per API call.</p>
+          <h1>Dashboard</h1>
+          <p className="sub">Overview of your settlement activity</p>
         </div>
         <span className={`live-badge ${status}`}>
           <span className="dot" />
@@ -75,84 +50,164 @@ export default function DashboardPage() {
 
       {offline && (
         <div className="notice">
-          Backend not reachable at the API URL. Start it with{" "}
+          Backend not reachable. Start it with{" "}
           <code>WATCH_ACCOUNTS=r… pnpm --filter @payper/backend dev</code>.
         </div>
       )}
 
-      <div className="cards">
-        <Stat label="Settled payments" value={analytics ? String(analytics.txCount) : "—"} />
-        <Stat label="Paying agents" value={analytics ? String(analytics.payingAgents) : "—"} />
+      <div className="tabs" role="tablist" aria-label="Time range">
+        {RANGES.map((r) => (
+          <button
+            key={r.key}
+            role="tab"
+            aria-selected={range === r.key}
+            className={`tab${range === r.key ? " active" : ""}`}
+            onClick={() => setRange(r.key)}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid stats">
+        <Stat label="Settled payments" value={loading ? null : String(ins.count)} />
+        <Stat label="Paying agents" value={loading ? null : String(ins.agents)} />
         <Stat
           label="Revenue"
           value={
-            revenue.length
-              ? revenue.map(([a, v]) => `${trim(v)} ${assetLabel(a)}`).join("  ·  ")
-              : "—"
+            loading
+              ? null
+              : revenue.length
+                ? revenue.map(([a, v]) => `${trimAmount(v)} ${assetLabel(a)}`).join("  ·  ")
+                : "—"
           }
+          small={revenue.length > 1}
         />
       </div>
 
-      <div className="card feed">
-        <div className="feed-head">
-          <span className="label">Live payment feed</span>
-          <span className="muted">{events.length ? `${events.length} shown` : "waiting…"}</span>
+      <div className="dash">
+        <div className="card card-pad">
+          <h2 className="section-title">Volume by asset</h2>
+          <p className="section-sub">Daily settled volume · native units</p>
+          <div style={{ marginTop: "1rem" }}>
+            {chart.labels.length ? (
+              <AreaChart labels={chart.labels} series={chart.series} formatY={(v) => trimAmount(v)} />
+            ) : (
+              <div className="empty">No settled volume in this range yet.</div>
+            )}
+          </div>
         </div>
 
-        {events.length === 0 ? (
-          <p className="muted empty">
-            No settled payments yet. Point the indexer at a merchant account and send one.
+        <div className="card card-pad insights">
+          <h2 className="section-title">Insights</h2>
+          <p className="section-sub" style={{ marginBottom: "1rem" }}>
+            {rangeLabel(range)}
+          </p>
+          {ins.count === 0 ? (
+            <p className="muted">No activity in this range.</p>
+          ) : (
+            <>
+              <p>
+                Average trade is{" "}
+                <strong>
+                  {trimAmount(Object.values(ins.avgByAsset)[0] ?? 0)} {primaryAsset}
+                </strong>{" "}
+                across <strong>{ins.count}</strong> tx.
+              </p>
+              <p>
+                Each paying agent averages <strong>{ins.txPerAgent.toFixed(1)}</strong> tx.
+              </p>
+              <p>
+                Settlement success rate is <strong>{ins.successRate}%</strong>.
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="card card-pad" style={{ marginTop: "1rem" }}>
+        <div className="row-between" style={{ marginBottom: "0.9rem" }}>
+          <h2 className="section-title">Live payment feed</h2>
+          <span className="muted" style={{ fontSize: "0.82rem" }}>
+            {loading ? "loading…" : inRange.length ? `${inRange.length} shown` : "waiting…"}
+          </span>
+        </div>
+
+        {loading ? (
+          <SkeletonRows />
+        ) : inRange.length === 0 ? (
+          <p className="empty">
+            No settled payments yet. Point the indexer at a merchant and send one.
           </p>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>When</th>
-                <th>From</th>
-                <th>Amount</th>
-                <th>Tx</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((e) => (
-                <tr key={e.txid} className="row">
-                  <td className="muted">{relativeTime(e.timestamp)}</td>
-                  <td className="mono">{shortId(e.from)}</td>
-                  <td>
-                    <span className="amount">{trim(e.amount)}</span>{" "}
-                    <span className="badge">{assetLabel(e.asset)}</span>
-                  </td>
-                  <td>
-                    <a
-                      className="mono link"
-                      href={`${EXPLORER}/transactions/${e.txid}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {shortId(e.txid)}
-                    </a>
-                  </td>
+          <div className="tablewrap">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>From</th>
+                  <th>Amount</th>
+                  <th>Tx</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {inRange.map((e) => (
+                  <tr key={e.txid} className={isFresh(e.txid) ? "row-in" : undefined}>
+                    <td className="muted" title={fullTime(e.timestamp)}>
+                      {relativeTime(e.timestamp)}
+                    </td>
+                    <td className="mono">{shortId(e.from)}</td>
+                    <td>
+                      <span className="amount">{trimAmount(e.amount)}</span>{" "}
+                      <span className="asset">{assetLabel(e.asset)}</span>
+                    </td>
+                    <td>
+                      <span className="copy">
+                        <a
+                          className="mono link"
+                          href={`${EXPLORER}/transactions/${e.txid}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {shortId(e.txid)}
+                        </a>
+                        <CopyButton value={e.txid} label="transaction hash" />
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </section>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, small }: { label: string; value: string | null; small?: boolean }) {
   return (
-    <div className="card">
-      <div className="value">{value}</div>
+    <div className="card stat">
       <div className="label">{label}</div>
+      {value === null ? (
+        <div className="skel" style={{ width: "60%", height: 26, marginTop: "0.6rem" }} />
+      ) : (
+        <div className={`value${small ? " sm" : ""}`}>{value}</div>
+      )}
     </div>
   );
 }
 
-function trim(v: string): string {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return v;
-  return n.toLocaleString(undefined, { maximumFractionDigits: 6 });
+function SkeletonRows() {
+  return (
+    <div className="stack" style={{ gap: "0.9rem", padding: "0.5rem 0" }}>
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="skel" style={{ width: `${90 - i * 8}%` }} />
+      ))}
+    </div>
+  );
+}
+
+function rangeLabel(r: Range): string {
+  return r === "all" ? "All time" : r === "day" ? "Past day" : r === "week" ? "Past week" : "Past month";
 }

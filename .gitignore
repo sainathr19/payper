@@ -28,3 +28,7 @@ yarn-error.log*
 .idea/
 .vscode/
 *.swp
+
+# Local tooling (design assistant, personal settings)
+.claude/skills/
+.claude/settings.local.json

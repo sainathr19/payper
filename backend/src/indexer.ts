@@ -1,4 +1,5 @@
 import { Client, dropsToXrp, rippleTimeToUnixTime } from "xrpl";
+import { DEFAULT_SOURCE_TAG } from "@payper/sdk";
 
 /** A settled inbound payment to a watched merchant account. */
 export interface LedgerEvent {
@@ -106,6 +107,10 @@ export class Indexer {
 
     const to = tx["Destination"] as string | undefined;
     if (!to || !this.watched.has(to)) return null; // only inbound to watched merchants
+
+    // Only x402 pay-per-call settlements, not arbitrary inbound XRP (e.g. faucet
+    // funding): the scheme stamps every payment with the x402 SourceTag.
+    if (tx["SourceTag"] !== DEFAULT_SOURCE_TAG) return null;
 
     const meta = (msg.meta ?? msg.metaData) as Record<string, unknown> | undefined;
     const delivered =

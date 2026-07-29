@@ -61,10 +61,16 @@ export default function TransactionsPage() {
           <h1>Transactions</h1>
           <p className="sub">Every settled x402 payment for your account</p>
         </div>
-        <span className={`live-badge ${status}`}>
-          <span className="dot" />
-          {status === "live" ? "Live" : status === "connecting" ? "Connecting" : "Reconnecting"}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <span className={`live-badge ${status}`}>
+            <span className="dot" />
+            {status === "live" ? "Live" : status === "connecting" ? "Connecting" : "Reconnecting"}
+          </span>
+          <button className="btn" onClick={exportCsv} disabled={filtered.length === 0}>
+            <Download aria-hidden />
+            Export CSV
+          </button>
+        </div>
       </div>
 
       {offline && (
@@ -102,10 +108,6 @@ export default function TransactionsPage() {
             </option>
           ))}
         </select>
-        <button className="btn" onClick={exportCsv} disabled={filtered.length === 0}>
-          <Download aria-hidden />
-          Export CSV
-        </button>
       </div>
 
       <div className="card card-pad">

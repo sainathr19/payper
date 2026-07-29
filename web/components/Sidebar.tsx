@@ -17,9 +17,6 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <span className="brand-mark" aria-hidden>
-          💧
-        </span>
         <span className="brand-name">Payper</span>
         <span className="pill">testnet</span>
       </div>

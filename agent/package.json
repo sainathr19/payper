@@ -3,6 +3,19 @@
   "version": "0.0.0",
   "description": "Autonomous reference consumer that discovers and pays for services.",
   "type": "module",
+  "main": "./dist/loop.js",
+  "types": "./dist/loop.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/loop.d.ts",
+      "default": "./dist/loop.js"
+    },
+    "./pay": {
+      "types": "./dist/pay.d.ts",
+      "default": "./dist/pay.js"
+    }
+  },
+  "files": ["dist"],
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",

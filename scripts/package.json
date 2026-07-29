@@ -10,9 +10,11 @@
     "test:rlusd": "tsx test-rlusd-testnet.ts",
     "test:indexer": "tsx test-indexer-testnet.ts",
     "test:sse": "tsx test-sse-testnet.ts",
+    "test:agent": "tsx test-agent-testnet.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@payper/agent": "workspace:*",
     "@payper/backend": "workspace:*",
     "@payper/gateway": "workspace:*",
     "@payper/sdk": "workspace:*",

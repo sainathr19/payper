@@ -1,52 +1,61 @@
-import { Client, Wallet } from "xrpl";
-import {
-  HEADERS,
-  X402_VERSION,
-  decodePaymentRequired,
-  encodePaymentPayload,
-  signXrplPayment,
-} from "@payper/sdk";
+import { Client } from "xrpl";
+import { runLoop } from "./loop.js";
 
 const TESTNET_WSS = "wss://s.altnet.rippletest.net:51233";
 
-/**
- * Autonomous reference agent (mirrors the XRPL AI Starter Kit's Agent Wallet +
- * Payment skills). Discovers a resource, pays the 402 quote, retries.
- *
- *   1. GET the resource → receive 402 + PAYMENT-REQUIRED quote.
- *   2. Sign an XRPL Payment for the quoted terms.
- *   3. Retry with PAYMENT-SIGNATURE → receive 200 + PAYMENT-RESPONSE (txid).
- */
-async function payFor(url: string, client: Client, wallet: Wallet): Promise<Response> {
-  const first = await fetch(url);
-  if (first.status !== 402) return first;
-
-  const quoteB64 = first.headers.get(HEADERS.required);
-  if (!quoteB64) throw new Error("402 without PAYMENT-REQUIRED header");
-
-  const quote = decodePaymentRequired(quoteB64);
-  const requirements = quote.accepts[0];
-  if (!requirements) throw new Error("no acceptable payment requirements in quote");
-
-  const payload = await signXrplPayment(client, wallet, requirements);
-  return fetch(url, {
-    headers: { [HEADERS.signature]: encodePaymentPayload({ ...payload, x402Version: X402_VERSION }) },
-  });
+interface Args {
+  target: string;
+  count: number;
+  intervalMs: number;
 }
 
+/**
+ * Parse `argv`: the first positional is the target URL; `--count N` (0 = run
+ * until Ctrl-C) and `--interval S` (seconds between calls) tune the loop.
+ */
+function parseArgs(argv: string[]): Args {
+  const args: Args = {
+    target: "http://localhost:8787/inference",
+    count: 5,
+    intervalMs: 3000,
+  };
+  const rest = argv.slice(2);
+  for (let i = 0; i < rest.length; i++) {
+    const arg = rest[i];
+    if (arg === undefined) continue;
+    if (arg === "--count") args.count = Number(rest[++i]);
+    else if (arg === "--interval") args.intervalMs = Number(rest[++i]) * 1000;
+    else if (!arg.startsWith("--")) args.target = arg;
+  }
+  return args;
+}
+
+/**
+ * Autonomous reference agent (mirrors the XRPL AI Starter Kit's Agent Wallet +
+ * Payment skills). Funds a testnet wallet, then pays for a resource on a loop —
+ * the demo's source of continuous, real settled volume.
+ *
+ *   pnpm --filter @payper/agent start http://localhost:8787/inference --count 10 --interval 2
+ */
 async function main(): Promise<void> {
-  const target = process.argv[2] ?? "http://localhost:8787/inference";
+  const { target, count, intervalMs } = parseArgs(process.argv);
 
   const client = new Client(TESTNET_WSS);
   await client.connect();
   try {
     const { wallet } = await client.fundWallet();
     console.log(`[agent] funded wallet ${wallet.address}`);
+    console.log(
+      `[agent] paying ${target} — ${count > 0 ? `${count} calls` : "until Ctrl-C"}, ` +
+        `every ${intervalMs / 1000}s\n`,
+    );
 
-    const res = await payFor(target, client, wallet);
-    const receipt = res.headers.get(HEADERS.response);
-    console.log("[agent]", res.status, await res.text());
-    if (receipt) console.log("[agent] PAYMENT-RESPONSE:", receipt);
+    const summary = await runLoop(target, client, wallet, { count, intervalMs });
+
+    console.log(
+      `\n[agent] done — ${summary.settled}/${summary.attempts} settled, ${summary.failed} failed`,
+    );
+    if (summary.failed > 0) process.exitCode = 1;
   } finally {
     await client.disconnect();
   }

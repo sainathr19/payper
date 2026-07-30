@@ -41,6 +41,54 @@ export async function getEvents(): Promise<LedgerEvent[]> {
   return res.json();
 }
 
+/* ---------- Marketplace: registry listings + pay-per-call ---------- */
+
+export interface ServiceEndpoint {
+  path: string;
+  /** Price in base units: drops for XRP, or the IOU value. */
+  price: string;
+  asset: string;
+  description?: string;
+}
+
+export interface Service {
+  id: string;
+  name: string;
+  owner: string;
+  endpoints: ServiceEndpoint[];
+}
+
+export interface PayOutcome {
+  status: number;
+  txid: string | null;
+  explorer: string | null;
+  body: unknown;
+}
+
+export async function getServices(): Promise<Service[]> {
+  const res = await fetch(`${API_BASE}/services`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`services ${res.status}`);
+  return res.json();
+}
+
+/** Ask the backend to run one real settled call against a seeded service path. */
+export async function payService(path: string): Promise<PayOutcome> {
+  const res = await fetch(`${API_BASE}/pay`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data as { error?: string })?.error ?? `pay ${res.status}`);
+  return data as PayOutcome;
+}
+
+/** Display an XRP price given in drops (base units); IOU prices pass through. */
+export function priceDisplay(price: string, asset: string): string {
+  if (asset === "XRP") return trimAmount(Number(price) / 1_000_000);
+  return trimAmount(price);
+}
+
 /** Open the SSE feed; returns the EventSource so the caller can close it. */
 export function streamEvents(
   onEvent: (e: LedgerEvent) => void,

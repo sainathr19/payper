@@ -30,6 +30,9 @@ importers:
 
   backend:
     dependencies:
+      '@payper/agent':
+        specifier: workspace:*
+        version: link:../agent
       '@payper/sdk':
         specifier: workspace:*
         version: link:../packages/sdk

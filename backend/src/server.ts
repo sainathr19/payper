@@ -1,7 +1,8 @@
 import express, { type Response } from "express";
-import { Registry } from "./registry.js";
+import { Registry, type Service } from "./registry.js";
 import { AnalyticsStore } from "./analytics.js";
 import { Indexer, type LedgerEvent } from "./indexer.js";
+import { payService } from "./payer.js";
 
 const app = express();
 app.use(express.json());
@@ -21,11 +22,101 @@ app.use((req, res, next) => {
 const registry = new Registry();
 const analytics = new AnalyticsStore();
 
+// The gateway that hosts the paid endpoints these services advertise.
+const GATEWAY_URL = process.env.GATEWAY_URL ?? "http://localhost:8788";
+const MERCHANT =
+  process.env.PAYPER_ACCOUNT_ADDRESS ??
+  (process.env.WATCH_ACCOUNTS ?? "").split(",")[0]?.trim() ??
+  "";
+
+// Seed the registry with the demo services the gateway actually serves (prices
+// in XRP drops). Real, payable listings — not placeholders.
+const SEED_SERVICES: Service[] = [
+  {
+    id: "inference",
+    name: "Inference — GPT-class completion",
+    owner: MERCHANT,
+    endpoints: [
+      {
+        path: "/inference",
+        price: "10000",
+        asset: "XRP",
+        description: "One chat/completion call. Pay-per-request, no key, no subscription.",
+      },
+    ],
+  },
+  {
+    id: "embeddings",
+    name: "Embeddings",
+    owner: MERCHANT,
+    endpoints: [
+      {
+        path: "/embeddings",
+        price: "2000",
+        asset: "XRP",
+        description: "Vector embeddings for a batch of inputs.",
+      },
+    ],
+  },
+  {
+    id: "search",
+    name: "Web search",
+    owner: MERCHANT,
+    endpoints: [
+      {
+        path: "/search",
+        price: "5000",
+        asset: "XRP",
+        description: "Ranked search results with source URLs for agent retrieval.",
+      },
+    ],
+  },
+  {
+    id: "image",
+    name: "Image generation",
+    owner: MERCHANT,
+    endpoints: [
+      {
+        path: "/image",
+        price: "20000",
+        asset: "XRP",
+        description: "One 1024×1024 image. Billed per generated asset.",
+      },
+    ],
+  },
+];
+for (const service of SEED_SERVICES) registry.register(service);
+
+/** Paths the /pay proxy is allowed to hit — locked to seeded services (no SSRF). */
+const PAYABLE_PATHS = new Set(
+  SEED_SERVICES.flatMap((s) => s.endpoints.map((e) => e.path)),
+);
+
 // --- Marketplace: machine-readable service listings agents can consume. ---
 app.get("/services", (_req, res) => res.json(registry.list()));
 app.post("/services", (req, res) => {
   registry.register(req.body);
   res.status(201).json({ ok: true });
+});
+
+// --- Pay & call: run one real settlement against a seeded service (demo). ---
+app.post("/pay", async (req, res) => {
+  const path = (req.body?.path ?? "") as string;
+  if (!PAYABLE_PATHS.has(path)) {
+    res.status(400).json({ error: "unknown service path" });
+    return;
+  }
+  try {
+    const result = await payService(GATEWAY_URL + path);
+    res.json({
+      status: result.status,
+      txid: result.txid ?? null,
+      explorer: result.explorer ?? null,
+      body: result.body ?? null,
+    });
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : "payment failed" });
+  }
 });
 
 // --- Dashboard: rolled-up analytics + recent settled-payment feed. ---

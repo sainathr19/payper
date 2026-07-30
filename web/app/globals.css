@@ -428,6 +428,25 @@ table.data tbody tr:hover {
   color: var(--ok);
 }
 
+.status.warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.kv.quote {
+  padding: 0.9rem 1rem;
+  background: var(--fill);
+  border-radius: var(--r-inset);
+  row-gap: 0.55rem;
+}
+
 .asset {
   display: inline-block;
   padding: 0.1rem 0.45rem;

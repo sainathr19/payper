@@ -1,4 +1,5 @@
 import express, { type Response } from "express";
+import { HEADERS, decodePaymentRequired } from "@payper/sdk";
 import { Registry, type Service } from "./registry.js";
 import { AnalyticsStore } from "./analytics.js";
 import { Indexer, type LedgerEvent } from "./indexer.js";
@@ -97,6 +98,23 @@ app.get("/services", (_req, res) => res.json(registry.list()));
 app.post("/services", (req, res) => {
   registry.register(req.body);
   res.status(201).json({ ok: true });
+});
+
+// --- Inspect: GET a seeded endpoint unpaid and return its decoded 402 quote. ---
+app.post("/inspect", async (req, res) => {
+  const path = (req.body?.path ?? "") as string;
+  if (!PAYABLE_PATHS.has(path)) {
+    res.status(400).json({ error: "unknown service path" });
+    return;
+  }
+  try {
+    const upstream = await fetch(GATEWAY_URL + path);
+    const quoteHeader = upstream.headers.get(HEADERS.required);
+    const quote = quoteHeader ? decodePaymentRequired(quoteHeader) : null;
+    res.json({ status: upstream.status, quote });
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : "inspect failed" });
+  }
 });
 
 // --- Pay & call: run one real settlement against a seeded service (demo). ---

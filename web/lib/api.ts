@@ -71,6 +71,36 @@ export async function getServices(): Promise<Service[]> {
   return res.json();
 }
 
+/** One accepted payment option in a 402 quote (mirrors the SDK PaymentRequirements). */
+export interface Requirements {
+  scheme: string;
+  network: string;
+  amount: string;
+  asset: string;
+  payTo: string;
+  maxTimeoutSeconds?: number;
+  resource?: string;
+  description?: string;
+  extra?: Record<string, unknown>;
+}
+
+export interface InspectResult {
+  status: number;
+  quote: { x402Version: number; accepts: Requirements[] } | null;
+}
+
+/** GET a seeded endpoint unpaid via the backend and return its decoded 402 quote. */
+export async function inspectService(path: string): Promise<InspectResult> {
+  const res = await fetch(`${API_BASE}/inspect`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data as { error?: string })?.error ?? `inspect ${res.status}`);
+  return data as InspectResult;
+}
+
 /** Ask the backend to run one real settled call against a seeded service path. */
 export async function payService(path: string): Promise<PayOutcome> {
   const res = await fetch(`${API_BASE}/pay`, {
